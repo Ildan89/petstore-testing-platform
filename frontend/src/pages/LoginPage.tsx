@@ -14,32 +14,31 @@ export default function LoginPage() {
     e.preventDefault();
     setError('');
 
-    // BUG: при регистрации проверка совпадения паролей только на клиенте,
-    // и сравнение нестрогое — можно обойти. А бэк confirm вообще игнорирует.
-    if (mode === 'register' && password != confirm) {
+    if (mode === 'register' && password !== confirm) {
       setError('Пароли не совпадают');
       return;
     }
 
     const path = mode === 'login' ? '/auth/login' : '/auth/register';
-    const res = await api.post<{ token?: string; error?: string }>(path, {
-      username,
-      password,
-      confirm_password: confirm,
-    });
-
-    // BUG: если token есть — заходим, но не показываем ошибку когда его нет
-    if (res.token) {
+    try {
+      const res = await api.post<{ token: string }>(path, {
+        username,
+        password,
+        confirm_password: confirm,
+      });
       setToken(res.token);
-      navigate('/pets');
-    } else {
-      // BUG: показываем res.error, но иногда там undefined → "undefined"
-      setError(res.error || 'Ошибка');
+      navigate('/task');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Ошибка');
     }
   };
 
   return (
-    <div style={{ maxWidth: 380, margin: '80px auto' }}>
+    <div style={{ maxWidth: 420, margin: '60px auto' }}>
+      <div className="warning-banner">
+        ⚠️ Это учебная платформа для тестовых заданий. Не вводите реальные
+        логины и пароли — данные могут быть общедоступны.
+      </div>
       <div className="card">
         <h2>{mode === 'login' ? 'Вход' : 'Регистрация'}</h2>
         {error && <div className="error">{error}</div>}
@@ -72,9 +71,13 @@ export default function LoginPage() {
         </form>
         <p style={{ marginTop: 16, textAlign: 'center' }}>
           {mode === 'login' ? (
-            <a onClick={() => setMode('register')}>Нет аккаунта? Регистрация</a>
+            <a onClick={() => setMode('register')} style={{ cursor: 'pointer' }}>
+              Нет аккаунта? Регистрация
+            </a>
           ) : (
-            <a onClick={() => setMode('login')}>Уже есть аккаунт? Вход</a>
+            <a onClick={() => setMode('login')} style={{ cursor: 'pointer' }}>
+              Уже есть аккаунт? Вход
+            </a>
           )}
         </p>
       </div>

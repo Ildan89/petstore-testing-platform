@@ -1,11 +1,12 @@
 export interface Pet {
   id: string; // BIGINT приходит строкой с бэка
   name: string;
-  category_id: number;
-  category_name: string;
-  status: 'available' | 'pending' | 'sold';
+  category_id: number | null;
+  category_name: string | null;
+  status: 'available' | 'pending' | 'sold' | null;
   price: string; // NUMERIC приходит строкой
   description: string;
+  seller_id: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -18,12 +19,15 @@ export interface Category {
 export interface Order {
   id: number;
   pet_id: string;
-  user_id: number;
+  seller_id: number;
+  buyer_name: string;
+  buyer_phone: string;
   quantity: number;
   status: string;
   placed_at: string;
   pet_name: string;
-  username: string;
+  pet_price: string;
+  seller_name: string;
 }
 
 export interface LogEntry {
@@ -34,6 +38,8 @@ export interface LogEntry {
   method?: string;
   created_at?: string;
   timestamp?: string;
+  sql_query?: string;
+  db_response?: string;
   details?: unknown;
 }
 
@@ -45,4 +51,10 @@ export interface PetsResponse {
     total: number;
     totalPages: number;
   };
+}
+
+export interface DashboardStats {
+  pets: number;
+  orders: number;
+  salesTotal: number;
 }

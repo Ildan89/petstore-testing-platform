@@ -82,17 +82,81 @@ th {
 }
 
 .nav {
-  background: #1976d2;
+  background: linear-gradient(135deg, #0d47a1 0%, #1976d2 60%, #26a69a 100%);
   color: #fff;
-  padding: 12px 20px;
+  padding: 10px 24px;
   display: flex;
-  gap: 20px;
+  gap: 18px;
   align-items: center;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
 }
 
-.nav a {
+/* Логотип */
+.nav .logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+}
+.logo-icon {
+  font-size: 30px;
+  background: rgba(255, 255, 255, 0.18);
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.25);
+}
+.logo-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.1;
+}
+.logo-title {
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  color: #fff;
+}
+.logo-sub {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.75);
+  font-weight: 500;
+}
+
+.nav-links {
+  display: flex;
+  gap: 6px;
+  margin-left: 12px;
+  flex-wrap: wrap;
+}
+.nav-links a {
   color: #fff;
   font-weight: 500;
+  font-size: 14px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  text-decoration: none;
+  transition: background 0.15s;
+  white-space: nowrap;
+}
+.nav-links a:hover {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.nav-right {
+  color: #fff !important;
+  font-weight: 500;
+  font-size: 14px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.nav-right:hover {
+  background: rgba(255, 255, 255, 0.18);
 }
 
 .nav .spacer {
@@ -138,3 +202,115 @@ th {
   font-weight: 500;
   color: #555;
 }
+
+/* Предупреждение на регистрации */
+.warning-banner {
+  background: #fff3cd;
+  border: 1px solid #ffe08a;
+  color: #7a5c00;
+  padding: 14px 16px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* Дашборд */
+.stats-row {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.stat-card {
+  flex: 1;
+  min-width: 160px;
+  background: #fff;
+  border-radius: 10px;
+  padding: 24px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  text-align: center;
+}
+.stat-value {
+  font-size: 32px;
+  font-weight: 700;
+  color: #1976d2;
+}
+.stat-label {
+  margin-top: 6px;
+  color: #666;
+  font-size: 14px;
+}
+
+/* Табы */
+.tabs { display: flex; gap: 8px; }
+.tab {
+  background: #eee;
+  color: #333;
+}
+.tab.active {
+  background: #1976d2;
+  color: #fff;
+}
+
+/* Код-блоки */
+.code-block {
+  background: #1e1e1e;
+  color: #d4d4d4;
+  padding: 12px;
+  border-radius: 6px;
+  overflow-x: auto;
+  font-size: 13px;
+  margin: 8px 0;
+}
+.code-block.small { font-size: 12px; padding: 8px; }
+code {
+  background: #eef1f4;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 13px;
+}
+
+/* Дока — эндпоинты */
+.endpoint {
+  padding: 10px 0;
+  border-bottom: 1px solid #eee;
+}
+.endpoint:last-child { border-bottom: none; }
+.method {
+  display: inline-block;
+  color: #fff;
+  font-weight: 700;
+  font-size: 12px;
+  padding: 3px 10px;
+  border-radius: 4px;
+  margin-right: 8px;
+  min-width: 56px;
+  text-align: center;
+}
+.endpoint-path {
+  font-family: monospace;
+  font-size: 14px;
+  background: transparent;
+}
+.lock { margin-left: 6px; }
+.endpoint-desc {
+  color: #666;
+  font-size: 13px;
+  margin-top: 4px;
+  margin-left: 64px;
+}
+
+/* Страница задания */
+.task-page h4 {
+  margin-bottom: 6px;
+  color: #1976d2;
+}
+.task-list li { margin-bottom: 10px; line-height: 1.5; }
+.tz-note {
+  color: #666;
+  font-size: 14px;
+  font-style: italic;
+}
+.tz-section { margin-bottom: 20px; }
+.tz-section ul, .tz-section ol { margin: 6px 0; padding-left: 22px; }
+.tz-section li { margin-bottom: 6px; line-height: 1.5; }

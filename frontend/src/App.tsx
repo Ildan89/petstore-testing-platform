@@ -1,10 +1,13 @@
 import { Routes, Route, Link, Navigate, useNavigate } from 'react-router-dom';
 import { getToken, clearToken } from './api/client';
 import LoginPage from './pages/LoginPage';
+import DashboardPage from './pages/DashboardPage';
 import PetsPage from './pages/PetsPage';
 import OrdersPage from './pages/OrdersPage';
 import SqlPage from './pages/SqlPage';
 import LogsPage from './pages/LogsPage';
+import DocsPage from './pages/DocsPage';
+import TaskPage from './pages/TaskPage';
 
 function RequireAuth({ children }: { children: JSX.Element }) {
   // BUG: проверяем только наличие токена, не его валидность/срок.
@@ -22,13 +25,24 @@ function Nav() {
   };
   return (
     <div className="nav">
-      <strong>🐾 Зоомагазин</strong>
-      <Link to="/pets">Питомцы</Link>
-      <Link to="/orders">Заказы</Link>
-      <Link to="/sql">SQL-консоль</Link>
-      <Link to="/logs">Логи</Link>
+      <Link to="/task" className="logo">
+        <span className="logo-icon">🐾</span>
+        <span className="logo-text">
+          <span className="logo-title">ЗооМаркет</span>
+          <span className="logo-sub">CRM для продавцов</span>
+        </span>
+      </Link>
+      <div className="nav-links">
+        <Link to="/dashboard">📊 Дашборд</Link>
+        <Link to="/pets">🐕 Питомцы</Link>
+        <Link to="/orders">🛒 Заказы</Link>
+      </div>
       <div className="spacer" />
-      <button className="secondary" onClick={logout}>Выйти</button>
+      <Link to="/sql" className="nav-right">🗄️ SQL-консоль</Link>
+      <Link to="/logs" className="nav-right">📜 Логи</Link>
+      <Link to="/task" className="nav-right">📋 Задание</Link>
+      <Link to="/docs" className="nav-right">📖 Дока</Link>
+      <button className="secondary" onClick={logout}>Выйти →</button>
     </div>
   );
 }
@@ -42,27 +56,26 @@ function Layout({ children }: { children: JSX.Element }) {
   );
 }
 
+function protectedRoute(el: JSX.Element) {
+  return (
+    <RequireAuth>
+      <Layout>{el}</Layout>
+    </RequireAuth>
+  );
+}
+
 export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
-      <Route
-        path="/pets"
-        element={<RequireAuth><Layout><PetsPage /></Layout></RequireAuth>}
-      />
-      <Route
-        path="/orders"
-        element={<RequireAuth><Layout><OrdersPage /></Layout></RequireAuth>}
-      />
-      <Route
-        path="/sql"
-        element={<RequireAuth><Layout><SqlPage /></Layout></RequireAuth>}
-      />
-      <Route
-        path="/logs"
-        element={<RequireAuth><Layout><LogsPage /></Layout></RequireAuth>}
-      />
-      <Route path="*" element={<Navigate to="/pets" replace />} />
+      <Route path="/dashboard" element={protectedRoute(<DashboardPage />)} />
+      <Route path="/pets" element={protectedRoute(<PetsPage />)} />
+      <Route path="/orders" element={protectedRoute(<OrdersPage />)} />
+      <Route path="/sql" element={protectedRoute(<SqlPage />)} />
+      <Route path="/logs" element={protectedRoute(<LogsPage />)} />
+      <Route path="/docs" element={protectedRoute(<DocsPage />)} />
+      <Route path="/task" element={protectedRoute(<TaskPage />)} />
+      <Route path="*" element={<Navigate to="/task" replace />} />
     </Routes>
   );
 }

@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import pool from '../db';
 import { authMiddleware } from '../middleware/auth';
+import { logToDb } from '../middleware/logger';
 
 const router = Router();
 router.use(authMiddleware);
@@ -22,12 +23,12 @@ router.get('/', async (req: Request, res: Response) => {
       [sellerId]
     );
 
-    // BUG #14: сумма продаж считает ВСЕ заказы, включая отменённые (cancelled).
-    // Должно быть: WHERE status != 'cancelled'
+    // BUG #18 (уровень БД): обращение к несуществующей колонке o.total_amount.
+    // PostgreSQL вернёт "column o.total_amount does not exist" → эндпоинт падает с 500.
+    // Причина видна в логах (sql_query + текст ошибки БД).
     const salesSum = await pool.query(
-      `SELECT COALESCE(SUM(p.price * o.quantity), 0) AS total
+      `SELECT COALESCE(SUM(o.total_amount), 0) AS total
        FROM orders o
-       JOIN pets p ON o.pet_id = p.id
        WHERE o.seller_id = $1`,
       [sellerId]
     );
@@ -38,7 +39,20 @@ router.get('/', async (req: Request, res: Response) => {
       salesTotal: Number(salesSum.rows[0].total),
     });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    // Реальную причину (ошибка БД + SQL) пишем ТОЛЬКО в логи.
+    // Наружу отдаём generic-сообщение — кандидат ищет причину в логах.
+    await logToDb(
+      'ERROR',
+      `Ошибка БД в /dashboard: ${err.message}`,
+      '/api/dashboard',
+      'GET',
+      req.user?.userId,
+      req.ip,
+      { code: err.code, detail: err.detail },
+      err.query || 'SELECT COALESCE(SUM(o.total_amount), 0) AS total FROM orders o WHERE o.seller_id = $1',
+      err.message,
+    );
+    res.status(500).json({ error: 'Internal Server Error' });
   }
 });
 

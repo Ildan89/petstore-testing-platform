@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api/client';
 import type { Pet, Category, PetsResponse } from '../api/types';
+import { petStatusRu } from '../api/labels';
+
+const DEFAULT_LIMIT = 5;
 
 export default function PetsPage() {
   const [pets, setPets] = useState<Pet[]>([]);
@@ -10,61 +13,60 @@ export default function PetsPage() {
   const [status, setStatus] = useState('');
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
-  const [limit] = useState(5);
   const [editing, setEditing] = useState<Partial<Pet> | null>(null);
+  const [error, setError] = useState('');
 
   const load = async () => {
-    // BUG: search вставляется в URL без encodeURIComponent → спецсимволы (&, #, %) ломают запрос
-    let url = `/pets?search=${search}&page=${page}&limit=${limit}`;
-    // Фильтры по категории и статусу (рабочие)
-    if (categoryId) url += `&category_id=${categoryId}`;
-    if (status) url += `&status=${status}`;
-    const res = await api.get<PetsResponse>(url);
-    setPets(res.data || []);
-    setTotal(res.pagination?.total || 0);
+    setError('');
+    const params = new URLSearchParams();
+    if (search) params.set('search', search);
+    if (categoryId) params.set('category_id', categoryId);
+    if (status) params.set('status', status);
+    params.set('page', String(page));
+    // BUG #8: на экране дефолт 5, но на бэк уходит limit + 10 (запрашиваем 15).
+    params.set('limit', String(DEFAULT_LIMIT + 10));
+    try {
+      const res = await api.get<PetsResponse>(`/pets?${params.toString()}`);
+      setPets(res.data || []);
+      setTotal(res.pagination?.total || 0);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Ошибка загрузки');
+    }
   };
 
   const loadCategories = async () => {
-    const res = await api.get<Category[]>('/categories');
-    setCategories(res || []);
+    try {
+      const res = await api.get<Category[]>('/categories');
+      setCategories(res || []);
+    } catch { /* тихо */ }
   };
 
   useEffect(() => {
     load();
-    // BUG: categories грузятся один раз, но зависимость на page/search
-    // приводит к тому что load дергается, а список категорий нет
   }, [page, categoryId, status]);
 
   useEffect(() => {
     loadCategories();
   }, []);
 
-  // Смена фильтра сбрасывает страницу на 1 (рабочее поведение)
-  const changeCategory = (val: string) => {
-    setCategoryId(val);
-    setPage(1);
-  };
-  const changeStatus = (val: string) => {
-    setStatus(val);
-    setPage(1);
-  };
-  const resetFilters = () => {
-    setSearch('');
-    setCategoryId('');
-    setStatus('');
-    setPage(1);
-  };
+  const changeCategory = (val: string) => { setCategoryId(val); setPage(1); };
+  const changeStatus = (val: string) => { setStatus(val); setPage(1); };
+  const resetFilters = () => { setSearch(''); setCategoryId(''); setStatus(''); setPage(1); };
 
   const doSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    // BUG: при поиске не сбрасываем page на 1 → можно оказаться на пустой странице
+    setPage(1);
     load();
   };
 
   const remove = async (id: string) => {
-    // BUG: удаление без подтверждения
-    await api.del(`/pets/${id}`);
-    load();
+    if (!confirm('Удалить питомца?')) return;
+    try {
+      await api.del(`/pets/${id}`);
+      load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Ошибка удаления');
+    }
   };
 
   const save = async (e: React.FormEvent) => {
@@ -77,25 +79,33 @@ export default function PetsPage() {
       price: editing.price,
       description: editing.description,
     };
-    if (editing.id) {
-      // BUG: id BIGINT берётся из объекта как строка, но при формировании URL
-      // JS может представить большое число некорректно если где-то был Number()
-      await api.put(`/pets/${editing.id}`, body);
-    } else {
-      await api.post('/pets', body);
+    try {
+      if (editing.id) {
+        await api.put(`/pets/${editing.id}`, body);
+      } else {
+        await api.post('/pets', body);
+      }
+      setEditing(null);
+      load();
+    } catch (e) {
+      // BUG #10: конкретную ошибку "Не удалось подключиться к базе данных"
+      // при создании молча проглатываем — форма закрывается как при успехе.
+      // Все прочие ошибки показываем (требование).
+      const msg = e instanceof Error ? e.message : 'Ошибка';
+      if (msg.includes('Не удалось подключиться к базе данных')) {
+        setEditing(null);
+        load();
+        return;
+      }
+      setError(msg);
     }
-    // BUG: не ждём и не перезагружаем актуально — иногда список не обновляется
-    setEditing(null);
-    load();
   };
 
-  const totalPages = Math.ceil(total / limit);
+  const totalPages = Math.ceil(total / DEFAULT_LIMIT);
 
   const formatPrice = (price: string) => {
     const n = Number(price);
-    // BUG: цена 0 или отрицательная показывается как «Бесплатно»
-    if (n <= 0) return 'Бесплатно';
-    return `${n} ₽`;
+    return `${n.toLocaleString('ru-RU')} ₽`;
   };
 
   return (
@@ -118,22 +128,20 @@ export default function PetsPage() {
           <select value={categoryId} onChange={(e) => changeCategory(e.target.value)}>
             <option value="">Все категории</option>
             {categories.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
+              <option key={c.id} value={c.id}>{c.name}</option>
             ))}
           </select>
           <select value={status} onChange={(e) => changeStatus(e.target.value)}>
             <option value="">Все статусы</option>
-            <option value="available">available</option>
-            <option value="pending">pending</option>
-            <option value="sold">sold</option>
+            <option value="available">В продаже</option>
+            <option value="pending">Бронь</option>
+            <option value="sold">Продан</option>
           </select>
-          <button className="secondary" onClick={resetFilters}>
-            Сбросить
-          </button>
+          <button className="secondary" onClick={resetFilters}>Сбросить</button>
         </div>
       </div>
+
+      {error && <div className="error">{error}</div>}
 
       <table>
         <thead>
@@ -149,23 +157,21 @@ export default function PetsPage() {
         <tbody>
           {pets.map((pet) => (
             <tr key={pet.id}>
-              {/* BUG: длинный BIGINT id отображается, но при копировании в другие формы теряет точность */}
               <td style={{ fontFamily: 'monospace', fontSize: 12 }}>{pet.id}</td>
-              {/* BUG: имя рендерится через dangerouslySetInnerHTML → XSS */}
-              <td dangerouslySetInnerHTML={{ __html: pet.name }} />
-              <td>{pet.category_name}</td>
+              <td>{pet.name}</td>
+              <td>{pet.category_name || '—'}</td>
               <td>
-                <span className={`badge ${pet.status}`}>{pet.status}</span>
+                {pet.status ? (
+                  <span className={`badge ${pet.status}`}>{petStatusRu(pet.status)}</span>
+                ) : (
+                  <span className="badge">—</span>
+                )}
               </td>
               <td>{formatPrice(pet.price)}</td>
               <td>
                 <div className="row">
-                  <button className="secondary" onClick={() => setEditing(pet)}>
-                    ✏️
-                  </button>
-                  <button className="danger" onClick={() => remove(pet.id)}>
-                    🗑
-                  </button>
+                  <button className="secondary" onClick={() => setEditing(pet)}>✏️</button>
+                  <button className="danger" onClick={() => remove(pet.id)}>🗑</button>
                 </div>
               </td>
             </tr>
@@ -174,22 +180,11 @@ export default function PetsPage() {
       </table>
 
       <div className="row" style={{ marginTop: 16, justifyContent: 'center' }}>
-        <button
-          className="secondary"
-          disabled={page <= 1}
-          onClick={() => setPage(page - 1)}
-        >
+        <button className="secondary" disabled={page <= 1} onClick={() => setPage(page - 1)}>
           ← Назад
         </button>
-        {/* BUG: показываем неверное общее число страниц — total не учитывает фильтр поиска */}
-        <span>
-          Страница {page} из {totalPages || 1}
-        </span>
-        <button
-          className="secondary"
-          disabled={page >= totalPages}
-          onClick={() => setPage(page + 1)}
-        >
+        <span>Страница {page} из {totalPages || 1}</span>
+        <button className="secondary" disabled={page >= totalPages} onClick={() => setPage(page + 1)}>
           Вперёд →
         </button>
       </div>
@@ -208,16 +203,14 @@ export default function PetsPage() {
             <div className="form-field">
               <label>Категория</label>
               <select
-                value={editing.category_id || ''}
+                value={editing.category_id ?? ''}
                 onChange={(e) =>
-                  setEditing({ ...editing, category_id: Number(e.target.value) })
+                  setEditing({ ...editing, category_id: e.target.value ? Number(e.target.value) : null })
                 }
               >
                 <option value="">—</option>
                 {categories.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
+                  <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
               </select>
             </div>
@@ -225,18 +218,15 @@ export default function PetsPage() {
               <label>Статус</label>
               <select
                 value={editing.status || 'available'}
-                onChange={(e) =>
-                  setEditing({ ...editing, status: e.target.value as Pet['status'] })
-                }
+                onChange={(e) => setEditing({ ...editing, status: e.target.value as Pet['status'] })}
               >
-                <option value="available">available</option>
-                <option value="pending">pending</option>
-                <option value="sold">sold</option>
+                <option value="available">В продаже</option>
+                <option value="pending">Бронь</option>
+                <option value="sold">Продан</option>
               </select>
             </div>
             <div className="form-field">
               <label>Цена</label>
-              {/* BUG: нет ограничения min=0, можно ввести отрицательную цену */}
               <input
                 type="number"
                 value={editing.price || ''}
@@ -252,9 +242,7 @@ export default function PetsPage() {
             </div>
             <div className="row">
               <button type="submit">Сохранить</button>
-              {/* BUG: кнопка «Отмена» имеет type submit по умолчанию внутри form →
-                  вместо отмены сабмитит форму */}
-              <button className="secondary" onClick={() => setEditing(null)}>
+              <button type="button" className="secondary" onClick={() => setEditing(null)}>
                 Отмена
               </button>
             </div>

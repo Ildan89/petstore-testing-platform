@@ -21,8 +21,8 @@ const ALLOWED_SCHEMAS = ['public'];
 function validateQuery(sql: string): { valid: boolean; error?: string } {
   const trimmed = sql.trim();
 
-  // Только SELECT
-  if (!/^\s*select\b/i.test(trimmed)) {
+  // Только SELECT или CTE (WITH ... SELECT). Модификации отсекаются списком FORBIDDEN ниже.
+  if (!/^\s*(select|with)\b/i.test(trimmed)) {
     return { valid: false, error: 'Разрешены только SELECT-запросы' };
   }
 

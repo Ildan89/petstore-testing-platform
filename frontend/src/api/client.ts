@@ -12,6 +12,14 @@ export function clearToken(): void {
   localStorage.removeItem('token');
 }
 
+export class ApiError extends Error {
+  status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.status = status;
+  }
+}
+
 async function request<T>(
   method: string,
   path: string,
@@ -21,7 +29,6 @@ async function request<T>(
   const token = getToken();
   if (token) headers['Authorization'] = `Bearer ${token}`;
 
-  // В проде — абсолютный URL бэкенда из env, локально — пустая строка (Vite-прокси).
   const base = import.meta.env.VITE_API_BASE || '';
   const res = await fetch(`${base}/api${path}`, {
     method,
@@ -31,8 +38,11 @@ async function request<T>(
 
   const data = await res.json().catch(() => ({}));
 
-  // BUG: не проверяем res.ok — ошибки сервера (4xx/5xx) не выбрасываются,
-  // компоненты думают что всё хорошо и рендерят error-объект как данные
+  // Требование: фронт показывает все ошибки бэка — бросаем на !ok
+  if (!res.ok) {
+    throw new ApiError(data?.error || `Ошибка ${res.status}`, res.status);
+  }
+
   return data as T;
 }
 
