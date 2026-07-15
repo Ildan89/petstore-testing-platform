@@ -22,3 +22,18 @@ services:
         generateValue: true
       - key: LOG_DIR
         value: ./logs
+
+  - type: web
+    name: petstore-frontend
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: ./dist
+    envVars:
+      - key: VITE_API_BASE
+        value: https://petstore-backend-9s3h.onrender.com
+    # SPA: все маршруты отдаём index.html (React Router)
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
