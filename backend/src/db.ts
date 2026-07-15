@@ -1,4 +1,5 @@
-import { Pool } from 'pg';
+import { Pool, QueryResult, QueryResultRow } from 'pg';
+import { AsyncLocalStorage } from 'async_hooks';
 
 const pool = new Pool({
   host: process.env.PGHOST || 'pg4.sweb.ru',
@@ -10,4 +11,32 @@ const pool = new Pool({
   idleTimeoutMillis: 30000,
 });
 
-export default pool;
+// Хранилище SQL-запросов в рамках одного HTTP-запроса (для логирования).
+export interface SqlRecord {
+  sql: string;
+  params?: unknown[];
+  rowCount: number | null;
+  rows: unknown[];
+}
+export const sqlStore = new AsyncLocalStorage<SqlRecord[]>();
+
+// Обёртка над pool.query — записывает SQL и ответ в текущий контекст запроса.
+// Логи самой таблицы logs не пишем (чтобы не зациклиться).
+async function query<T extends QueryResultRow = any>(
+  text: string,
+  params?: unknown[]
+): Promise<QueryResult<T>> {
+  const result = await pool.query<T>(text, params);
+  const store = sqlStore.getStore();
+  if (store && !/\blogs\b/i.test(text)) {
+    store.push({
+      sql: text.replace(/\s+/g, ' ').trim(),
+      params,
+      rowCount: result.rowCount,
+      rows: result.rows.slice(0, 20), // не раздуваем ответ
+    });
+  }
+  return result;
+}
+
+export default { query };

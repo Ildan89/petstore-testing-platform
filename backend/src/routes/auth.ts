@@ -10,10 +10,14 @@ router.post('/register', async (req: Request, res: Response) => {
   try {
     const { username, password, confirm_password } = req.body;
 
-    // BUG: не проверяем confirm_password на совпадение
-    // Кандидат должен найти: confirm_password игнорируется
     if (!username || !password) {
       res.status(400).json({ error: 'username и password обязательны' });
+      return;
+    }
+
+    // Пароли должны совпадать (требование)
+    if (confirm_password !== undefined && password !== confirm_password) {
+      res.status(400).json({ error: 'Пароли не совпадают' });
       return;
     }
 
@@ -22,13 +26,20 @@ router.post('/register', async (req: Request, res: Response) => {
       return;
     }
 
+    const hash = await bcrypt.hash(password, 10);
+
+    // BUG #17: повторная регистрация на существующий username не даёт ошибку.
+    // Старого пользователя переименовываем (освобождаем имя) и заводим НОВОГО с новым id.
+    // Животные/заказы прежнего продавца остаются висеть на старом id — становятся "осиротевшими".
     const existing = await pool.query('SELECT id FROM users WHERE username = $1', [username]);
     if (existing.rows.length > 0) {
-      res.status(409).json({ error: 'Пользователь уже существует' });
-      return;
+      const oldId = existing.rows[0].id;
+      await pool.query(
+        'UPDATE users SET username = $1 WHERE id = $2',
+        [`${username}_old_${oldId}`, oldId]
+      );
     }
 
-    const hash = await bcrypt.hash(password, 10);
     const result = await pool.query(
       'INSERT INTO users (username, password_hash) VALUES ($1, $2) RETURNING id',
       [username, hash]
@@ -36,11 +47,9 @@ router.post('/register', async (req: Request, res: Response) => {
 
     const token = generateToken({ userId: result.rows[0].id, username });
 
-    // BUG: возвращаем пароль в ответе
     res.status(201).json({
       id: result.rows[0].id,
       username,
-      password, // <-- утечка пароля!
       token,
     });
   } catch (err: any) {
@@ -58,9 +67,13 @@ router.post('/login', async (req: Request, res: Response) => {
       return;
     }
 
-    const result = await pool.query('SELECT id, username, password_hash FROM users WHERE username = $1', [username]);
+    const result = await pool.query(
+      'SELECT id, username, password_hash FROM users WHERE username = $1',
+      [username]
+    );
+
+    // Единое сообщение (не раскрываем, существует ли пользователь)
     if (result.rows.length === 0) {
-      // BUG: разные сообщения — по одному видно, что юзер существует, по другому нет
       res.status(401).json({ error: 'Неверный логин или пароль' });
       return;
     }
@@ -68,8 +81,7 @@ router.post('/login', async (req: Request, res: Response) => {
     const user = result.rows[0];
     const valid = await bcrypt.compare(password, user.password_hash);
     if (!valid) {
-      // BUG: другое сообщение — позволяет перебирать пользователей
-      res.status(401).json({ error: 'Неверный пароль' });
+      res.status(401).json({ error: 'Неверный логин или пароль' });
       return;
     }
 
@@ -88,8 +100,9 @@ router.post('/login', async (req: Request, res: Response) => {
 // GET /api/auth/me
 router.get('/me', authMiddleware, async (req: Request, res: Response) => {
   try {
+    // BUG #11: утечка password_hash в ответе профиля
     const result = await pool.query(
-      'SELECT id, username, created_at FROM users WHERE id = $1',
+      'SELECT id, username, password_hash, created_at FROM users WHERE id = $1',
       [req.user!.userId]
     );
     if (result.rows.length === 0) {
