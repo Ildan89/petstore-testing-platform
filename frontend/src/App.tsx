@@ -26,7 +26,15 @@ function Nav() {
   return (
     <div className="nav">
       <Link to="/task" className="logo">
-        <span className="logo-icon">🐾</span>
+        <span className="logo-icon">
+          <svg viewBox="0 0 64 64" width="30" height="30" fill="#8B5A2B" aria-hidden="true">
+            <ellipse cx="32" cy="44" rx="14" ry="11" />
+            <ellipse cx="14" cy="30" rx="6.5" ry="8.5" />
+            <ellipse cx="26" cy="20" rx="6" ry="8.5" />
+            <ellipse cx="38" cy="20" rx="6" ry="8.5" />
+            <ellipse cx="50" cy="30" rx="6.5" ry="8.5" />
+          </svg>
+        </span>
         <span className="logo-text">
           <span className="logo-title">ЗооМаркет</span>
           <span className="logo-sub">CRM для продавцов</span>
