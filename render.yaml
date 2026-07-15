@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: petstore-backend
+    runtime: node
+    rootDir: backend
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: PGHOST
+        value: pg4.sweb.ru
+      - key: PGPORT
+        value: "5433"
+      - key: PGUSER
+        value: ramaldano2
+      - key: PGDATABASE
+        value: ramaldano2
+      - key: PGPASSWORD
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: LOG_DIR
+        value: ./logs
