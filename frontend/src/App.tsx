@@ -1,5 +1,6 @@
 import { Routes, Route, Link, Navigate, useNavigate } from 'react-router-dom';
 import { getToken, clearToken } from './api/client';
+import { PawIcon } from './components/Logo';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import PetsPage from './pages/PetsPage';
@@ -27,13 +28,7 @@ function Nav() {
     <div className="nav">
       <Link to="/task" className="logo">
         <span className="logo-icon">
-          <svg viewBox="0 0 64 64" width="30" height="30" fill="#8B5A2B" aria-hidden="true">
-            <ellipse cx="32" cy="44" rx="14" ry="11" />
-            <ellipse cx="14" cy="30" rx="6.5" ry="8.5" />
-            <ellipse cx="26" cy="20" rx="6" ry="8.5" />
-            <ellipse cx="38" cy="20" rx="6" ry="8.5" />
-            <ellipse cx="50" cy="30" rx="6.5" ry="8.5" />
-          </svg>
+          <PawIcon size={30} />
         </span>
         <span className="logo-text">
           <span className="logo-title">ЗооМаркет</span>

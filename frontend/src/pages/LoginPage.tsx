@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api, setToken } from '../api/client';
+import { PawIcon } from '../components/Logo';
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -35,6 +36,15 @@ export default function LoginPage() {
 
   return (
     <div style={{ maxWidth: 420, margin: '60px auto' }}>
+      <div className="login-logo">
+        <span className="login-logo-icon">
+          <PawIcon size={44} />
+        </span>
+        <div className="login-logo-text">
+          <div className="login-logo-title">ЗооМаркет</div>
+          <div className="login-logo-sub">CRM для продавцов</div>
+        </div>
+      </div>
       <div className="warning-banner">
         ⚠️ Это учебная платформа для тестовых заданий. Не вводите реальные
         логины и пароли — данные могут быть общедоступны.
