@@ -21,7 +21,9 @@ async function request<T>(
   const token = getToken();
   if (token) headers['Authorization'] = `Bearer ${token}`;
 
-  const res = await fetch(`/api${path}`, {
+  // В проде — абсолютный URL бэкенда из env, локально — пустая строка (Vite-прокси).
+  const base = import.meta.env.VITE_API_BASE || '';
+  const res = await fetch(`${base}/api${path}`, {
     method,
     headers,
     body: body ? JSON.stringify(body) : undefined,
