@@ -40,6 +40,7 @@ export interface LogEntry {
   timestamp?: string;
   sql_query?: string;
   db_response?: string;
+  stack?: string;
   details?: unknown;
 }
 

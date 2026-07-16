@@ -1,86 +1,62 @@
 import { Router, Request, Response } from 'express';
 import pool from '../db';
 import { authMiddleware } from '../middleware/auth';
-import fs from 'fs';
-import path from 'path';
 
 const router = Router();
 router.use(authMiddleware);
 
-const LOG_DIR = process.env.LOG_DIR || path.join(process.cwd(), 'logs');
-
-// GET /api/logs — поиск по логам
+// GET /api/logs — логи из БД с фильтрами и пагинацией
 router.get('/', async (req: Request, res: Response) => {
   try {
     const level = req.query.level as string;
     const dateFrom = req.query.date_from as string;
     const dateTo = req.query.date_to as string;
     const search = req.query.search as string;
-    const source = req.query.source as string || 'db'; // 'db' или 'file'
+    const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 20;
+    const offset = (page - 1) * limit;
 
-    if (source === 'file') {
-      // Поиск по файловым логам
-      const files = fs.readdirSync(LOG_DIR).filter(f => f.endsWith('.log')).sort().reverse();
-      let results: string[] = [];
+    const params: any[] = [];
+    let where = ' WHERE 1=1';
 
-      for (const file of files.slice(0, 7)) { // последние 7 дней
-        const content = fs.readFileSync(path.join(LOG_DIR, file), 'utf-8');
-        const lines = content.split('\n').filter(Boolean);
-
-        for (const line of lines) {
-          try {
-            const parsed = JSON.parse(line);
-            if (level && parsed.level !== level) continue;
-            // BUG: поиск чувствителен к регистру в файловых логах
-            if (search && !parsed.message?.includes(search)) continue;
-            if (dateFrom && parsed.timestamp < dateFrom) continue;
-            if (dateTo && parsed.timestamp > dateTo) continue;
-            results.push(parsed);
-          } catch {}
-        }
-      }
-
-      // BUG: нет пагинации для файловых логов
-      res.json({ source: 'file', count: results.length, data: results.slice(0, limit) });
-    } else {
-      // Поиск по БД
-      let query = 'SELECT * FROM logs WHERE 1=1';
-      const params: any[] = [];
-      let paramIdx = 0;
-
-      if (level) {
-        paramIdx++;
-        query += ` AND level = $${paramIdx}`;
-        params.push(level);
-      }
-
-      if (dateFrom) {
-        paramIdx++;
-        query += ` AND created_at >= $${paramIdx}`;
-        params.push(dateFrom);
-      }
-
-      if (dateTo) {
-        paramIdx++;
-        query += ` AND created_at <= $${paramIdx}`;
-        params.push(dateTo);
-      }
-
-      if (search) {
-        paramIdx++;
-        // BUG: поиск в БД регистронезависимый, а в файлах — регистрозависимый
-        query += ` AND message ILIKE $${paramIdx}`;
-        params.push(`%${search}%`);
-      }
-
-      paramIdx++;
-      query += ` ORDER BY updated_at DESC LIMIT $${paramIdx}`;
-      params.push(limit);
-
-      const result = await pool.query(query, params);
-      res.json({ source: 'db', count: result.rows.length, data: result.rows });
+    if (level) {
+      params.push(level);
+      where += ` AND level = $${params.length}`;
     }
+    if (dateFrom) {
+      params.push(dateFrom);
+      where += ` AND created_at >= $${params.length}`;
+    }
+    if (dateTo) {
+      params.push(dateTo);
+      where += ` AND created_at <= $${params.length}`;
+    }
+    if (search) {
+      // Общий поиск: по сообщению, SQL-запросу, ответу БД и stack trace
+      params.push(`%${search}%`);
+      const p = params.length;
+      where += ` AND (message ILIKE $${p} OR sql_query ILIKE $${p} OR db_response ILIKE $${p} OR stack ILIKE $${p})`;
+    }
+
+    const listParams = [...params, limit, offset];
+    const result = await pool.query(
+      `SELECT * FROM logs ${where}
+       ORDER BY updated_at DESC
+       LIMIT $${listParams.length - 1} OFFSET $${listParams.length}`,
+      listParams
+    );
+
+    const countResult = await pool.query(
+      `SELECT COUNT(*) FROM logs ${where}`,
+      params
+    );
+    const total = parseInt(countResult.rows[0].count);
+
+    res.json({
+      data: result.rows,
+      count: result.rows.length,
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }

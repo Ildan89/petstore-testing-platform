@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { randomUUID } from 'crypto';
-import pool, { sqlStore, SqlRecord } from '../db';
+import pool, { sqlStore, SqlRecord, errorStore, ErrorHolder } from '../db';
 import fs from 'fs';
 import path from 'path';
 
@@ -9,6 +9,17 @@ const LOG_LIMIT = parseInt(process.env.LOG_LIMIT || '2000', 10);
 
 // Ensure log directory exists
 try { fs.mkdirSync(LOG_DIR, { recursive: true }); } catch {}
+
+// Маскируем чувствительные поля (пароли) в теле запроса перед логированием
+const SENSITIVE = ['password', 'confirm_password'];
+function maskSensitive(obj: unknown): unknown {
+  if (!obj || typeof obj !== 'object') return obj;
+  const copy: Record<string, unknown> = { ...(obj as Record<string, unknown>) };
+  for (const key of Object.keys(copy)) {
+    if (SENSITIVE.includes(key.toLowerCase())) copy[key] = '***';
+  }
+  return copy;
+}
 
 export function logToFile(level: string, message: string, meta?: Record<string, unknown>): void {
   const line = JSON.stringify({
@@ -48,12 +59,13 @@ export async function logToDb(
   ip: string | undefined,
   details: Record<string, unknown> | undefined,
   sqlQuery?: string,
-  dbResponse?: string
+  dbResponse?: string,
+  stack?: string
 ): Promise<void> {
   try {
     await pool.query(
-      `INSERT INTO logs (level, message, endpoint, method, user_id, ip, details, sql_query, db_response)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+      `INSERT INTO logs (level, message, endpoint, method, user_id, ip, details, sql_query, db_response, stack)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
       [
         level,
         message,
@@ -64,6 +76,7 @@ export async function logToDb(
         details ? JSON.stringify(details) : null,
         sqlQuery ?? null,
         dbResponse ?? null,
+        stack ?? null,
       ]
     );
     await trimLogs();
@@ -75,7 +88,14 @@ export async function logToDb(
 export function requestLogger(req: Request, res: Response, next: NextFunction): void {
   const start = Date.now();
   const records: SqlRecord[] = [];
+  const errorHolder: ErrorHolder = {};
   const requestId = randomUUID();
+
+  // Полный путь и метод фиксируем ДО роутинга (внутри finish req.path укорочен роутером)
+  const fullUrl = req.originalUrl.split('?')[0];
+  const method = req.method;
+  const reqQuery = req.query;
+  const reqBody = req.body;
 
   // Перехватываем тело ответа, чтобы достать текст ошибки (поле error)
   let responseBody: unknown;
@@ -102,11 +122,23 @@ export function requestLogger(req: Request, res: Response, next: NextFunction): 
       errorText = String((responseBody as Record<string, unknown>).error);
     }
 
-    // Двухстрочное сообщение:
+    // Query-параметры и тело запроса (если переданы). Пароли маскируем.
+    const hasQuery = reqQuery && Object.keys(reqQuery).length > 0;
+    const hasBody = reqBody && typeof reqBody === 'object' && Object.keys(reqBody).length > 0;
+    const safeBody = maskSensitive(reqBody);
+
+    // Сообщение:
     // 1) requestId, accountId, метод url статус
-    // 2) текст ошибки (если есть)
-    const line1 = `requestId=${requestId} accountId=${accountId} | ${req.method} ${req.path} ${res.statusCode}`;
-    const message = errorText ? `${line1}\n${errorText}` : line1;
+    // 2) query-параметры (если есть)
+    // 3) тело запроса (если есть)
+    // 4) текст ошибки (если есть)
+    const parts = [
+      `requestId=${requestId} accountId=${accountId} | ${method} ${fullUrl} ${res.statusCode}`,
+    ];
+    if (hasQuery) parts.push(`params: ${JSON.stringify(reqQuery)}`);
+    if (hasBody) parts.push(`body: ${JSON.stringify(safeBody)}`);
+    if (errorText) parts.push(errorText);
+    const message = parts.join('\n');
 
     const sqlQuery = records.map((r) => r.sql).join(';\n');
     const dbResponse = JSON.stringify(
@@ -116,8 +148,8 @@ export function requestLogger(req: Request, res: Response, next: NextFunction): 
     logToFile(level, message, {
       requestId,
       accountId,
-      endpoint: req.path,
-      method: req.method,
+      endpoint: fullUrl,
+      method,
       duration,
       statusCode: res.statusCode,
       ip: req.ip || req.socket.remoteAddress,
@@ -128,16 +160,17 @@ export function requestLogger(req: Request, res: Response, next: NextFunction): 
     logToDb(
       level,
       message,
-      req.path,
-      req.method,
+      fullUrl,
+      method,
       req.user?.userId,
       req.ip || req.socket.remoteAddress,
-      { requestId, accountId, duration, statusCode: res.statusCode, query: req.query, body: req.body },
+      { requestId, accountId, duration, statusCode: res.statusCode, query: reqQuery, body: safeBody },
       sqlQuery || undefined,
       dbResponse,
+      errorHolder.stack,
     );
   });
 
-  // Выполняем обработчик внутри контекста, куда db.query складывает записи
-  sqlStore.run(records, () => next());
+  // Выполняем обработчик внутри контекстов: SQL-записи и stack ошибки
+  errorStore.run(errorHolder, () => sqlStore.run(records, () => next()));
 }

@@ -374,3 +374,33 @@ code {
   color: #0d47a1;
   font-weight: 500;
 }
+
+/* Раскрываемые блоки в логах */
+.log-block {
+  margin-top: 6px;
+}
+.log-block-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 3px 6px;
+  background: #f1f4f8;
+  border-radius: 5px;
+  user-select: none;
+}
+.log-block-head:hover { background: #e6ebf2; }
+.log-block-arrow { color: #888; width: 10px; }
+.log-block-label {
+  font-weight: 600;
+  color: #1976d2;
+  white-space: nowrap;
+}
+.log-block-preview {
+  color: #888;
+  font-family: monospace;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

@@ -1,7 +1,6 @@
 import { Router, Request, Response } from 'express';
 import pool from '../db';
 import { authMiddleware } from '../middleware/auth';
-import { logToDb } from '../middleware/logger';
 
 const router = Router();
 router.use(authMiddleware);
@@ -39,19 +38,8 @@ router.get('/', async (req: Request, res: Response) => {
       salesTotal: Number(salesSum.rows[0].total),
     });
   } catch (err: any) {
-    // Реальную причину (ошибка БД + SQL) пишем ТОЛЬКО в логи.
-    // Наружу отдаём generic-сообщение — кандидат ищет причину в логах.
-    await logToDb(
-      'ERROR',
-      `Ошибка БД в /dashboard: ${err.message}`,
-      '/api/dashboard',
-      'GET',
-      req.user?.userId,
-      req.ip,
-      { code: err.code, detail: err.detail },
-      err.query || 'SELECT COALESCE(SUM(o.total_amount), 0) AS total FROM orders o WHERE o.seller_id = $1',
-      err.message,
-    );
+    // Наружу отдаём generic-сообщение. Реальную причину (текст ошибки БД, SQL и
+    // stack trace) централизованный логгер запишет в логи автоматически.
     res.status(500).json({ error: 'Internal Server Error' });
   }
 });
