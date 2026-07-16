@@ -7,3 +7,6 @@ logs/
 
 # Claude Code
 .claude/
+
+# Методичка проверяющего — НЕ коммитить (содержит ответы)
+SOLUTIONS.md
