@@ -16,16 +16,29 @@ router.get('/', async (req: Request, res: Response) => {
     const offset = (page - 1) * limit;
 
     const params: any[] = [];
-    let where = ' WHERE 1=1';
+    const isAdmin = req.user!.userId === 0;
+    const sellerFilter = (req.query.seller_id as string) || '';
+
+    let where: string;
+    if (isAdmin) {
+      // Admin видит все заказы, опционально фильтрует по продавцу
+      where = ' WHERE 1=1';
+      if (sellerFilter) {
+        params.push(parseInt(sellerFilter, 10));
+        where += ` AND o.seller_id = $${params.length}`;
+      }
+    } else {
+      // BUG #1: показываем ВСЕ заказы продавцов, а не только заказы текущего продавца.
+      // Должно быть: WHERE o.seller_id = req.user.userId.
+      // Но заказы админа (seller_id = 0) скрыты от обычных продавцов.
+      where = ' WHERE o.seller_id <> 0';
+    }
 
     // Поиск по имени животного (рабочий)
     if (search) {
       params.push(`%${search}%`);
       where += ` AND p.name ILIKE $${params.length}`;
     }
-
-    // BUG #1: показываем ВСЕ заказы, а не только заказы текущего продавца.
-    // Должно быть: WHERE o.seller_id = req.user.userId
 
     const listParams = [...params, limit, offset];
     const result = await pool.query(

@@ -7,6 +7,7 @@ export interface Pet {
   price: string; // NUMERIC приходит строкой
   description: string;
   seller_id: number | null;
+  seller_name?: string | null;
   created_at: string;
   updated_at: string;
 }

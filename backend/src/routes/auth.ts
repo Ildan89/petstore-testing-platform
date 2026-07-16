@@ -15,6 +15,13 @@ router.post('/register', async (req: Request, res: Response) => {
       return;
     }
 
+    // Защита настоящего админа (Admin, id=0): не даём зарегистрироваться на этот логин
+    // и не раскрываем, что он существует.
+    if (username === 'Admin') {
+      res.status(401).json({ error: 'Неверный логин или пароль' });
+      return;
+    }
+
     // Пароли должны совпадать (требование)
     if (confirm_password !== undefined && password !== confirm_password) {
       res.status(400).json({ error: 'Пароли не совпадают' });

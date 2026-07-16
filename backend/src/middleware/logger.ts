@@ -106,6 +106,18 @@ export function requestLogger(req: Request, res: Response, next: NextFunction): 
   };
 
   res.on('finish', () => {
+    // Не логируем: действия админа (id=0) и health-check без параметров.
+    // health с параметрами (напр. ?from=sweb-cron) логируем — для отслеживания.
+    // Админ определяется по токену (req.user) ИЛИ по id=0 в теле ответа (вход/регистрация).
+    const bodyId =
+      responseBody && typeof responseBody === 'object'
+        ? (responseBody as Record<string, unknown>).id
+        : undefined;
+    const isAdmin = req.user?.userId === 0 || bodyId === 0;
+    const isPlainHealth =
+      fullUrl === '/api/health' && (!reqQuery || Object.keys(reqQuery).length === 0);
+    if (isAdmin || isPlainHealth) return;
+
     const duration = Date.now() - start;
     const level = res.statusCode >= 400 ? 'ERROR' : 'INFO';
 

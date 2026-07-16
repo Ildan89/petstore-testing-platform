@@ -17,11 +17,24 @@ router.get('/', async (req: Request, res: Response) => {
     const offset = (page - 1) * limit;
 
     const params: any[] = [];
+    const isAdmin = sellerId === 0;
+    const sellerFilter = (req.query.seller_id as string) || '';
 
-    // BUG #16: показываем свои + "ничейные" (seller_id IS NULL) — чужие без владельца
-    // видны всем продавцам. Должно быть: только свои.
-    params.push(sellerId);
-    let where = ` WHERE (p.seller_id = $${params.length} OR p.seller_id IS NULL)`;
+    let where: string;
+    if (isAdmin) {
+      // Admin видит всех. Опционально фильтрует по конкретному продавцу.
+      where = ' WHERE 1=1';
+      if (sellerFilter) {
+        params.push(parseInt(sellerFilter, 10));
+        where += ` AND p.seller_id = $${params.length}`;
+      }
+    } else {
+      // BUG #16: показываем свои + "ничейные" (seller_id IS NULL) — чужие без владельца
+      // видны всем продавцам. Должно быть: только свои.
+      // Питомцы админа (seller_id = 0) при этом не видны обычным продавцам.
+      params.push(sellerId);
+      where = ` WHERE (p.seller_id = $${params.length} OR p.seller_id IS NULL)`;
+    }
 
     if (search) {
       params.push(`%${search}%`);
@@ -42,10 +55,11 @@ router.get('/', async (req: Request, res: Response) => {
 
     const query = `
       SELECT p.id, p.name, p.category_id, c.name as category_name,
-             p.status, p.price, p.description, p.seller_id,
+             p.status, p.price, p.description, p.seller_id, u.username as seller_name,
              p.created_at, p.updated_at
       FROM pets p
       LEFT JOIN categories c ON p.category_id = c.id
+      LEFT JOIN users u ON p.seller_id = u.id
       ${where}
       ORDER BY p.updated_at DESC
       LIMIT $${listParams.length - 1} OFFSET $${listParams.length}

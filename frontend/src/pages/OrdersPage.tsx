@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
-import { api } from '../api/client';
+import { api, isAdmin } from '../api/client';
 import type { Order, Pet, PetsResponse } from '../api/types';
 import { orderStatusRu } from '../api/labels';
 import { PageSizeSelect, apiLimit, DEFAULT_PAGE_SIZE } from '../components/PageSize';
+import { SellerFilter } from '../components/SellerFilter';
 
 interface OrdersResponse {
   data: Order[];
@@ -15,6 +16,7 @@ const NEXT_STATUS: Record<string, string> = {
 };
 
 export default function OrdersPage() {
+  const admin = isAdmin();
   const [orders, setOrders] = useState<Order[]>([]);
   const [pets, setPets] = useState<Pet[]>([]);
   const [petId, setPetId] = useState('');
@@ -22,9 +24,10 @@ export default function OrdersPage() {
   const [buyerName, setBuyerName] = useState('');
   const [buyerPhone, setBuyerPhone] = useState('');
   const [error, setError] = useState('');
-  // поиск по животному + пагинация
+  // поиск по животному + фильтр по продавцу (admin) + пагинация
   const [search, setSearch] = useState('');
   const [searchInput, setSearchInput] = useState('');
+  const [sellerId, setSellerId] = useState('');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [total, setTotal] = useState(0);
@@ -33,6 +36,7 @@ export default function OrdersPage() {
     try {
       const params = new URLSearchParams();
       if (search) params.set('search', search);
+      if (admin && sellerId) params.set('seller_id', sellerId);
       params.set('page', String(page));
       params.set('limit', String(apiLimit(pageSize)));
       const res = await api.get<OrdersResponse>(`/orders?${params.toString()}`);
@@ -52,7 +56,7 @@ export default function OrdersPage() {
 
   useEffect(() => {
     load();
-  }, [page, pageSize, search]);
+  }, [page, pageSize, search, sellerId]);
 
   useEffect(() => {
     loadPets();
@@ -164,11 +168,14 @@ export default function OrdersPage() {
             style={{ flex: 1 }}
           />
           <button type="submit">Найти</button>
-          {search && (
+          {admin && (
+            <SellerFilter value={sellerId} onChange={(v) => { setSellerId(v); setPage(1); }} />
+          )}
+          {(search || sellerId) && (
             <button
               type="button"
               className="secondary"
-              onClick={() => { setSearch(''); setSearchInput(''); setPage(1); }}
+              onClick={() => { setSearch(''); setSearchInput(''); setSellerId(''); setPage(1); }}
             >
               Сбросить
             </button>

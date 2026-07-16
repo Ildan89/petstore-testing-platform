@@ -1,18 +1,21 @@
 import { useEffect, useState } from 'react';
-import { api } from '../api/client';
+import { api, isAdmin } from '../api/client';
 import type { Pet, Category, PetsResponse } from '../api/types';
 import { petStatusRu } from '../api/labels';
 import { PageSizeSelect, apiLimit } from '../components/PageSize';
+import { SellerFilter } from '../components/SellerFilter';
 
 // По ТЗ в каталоге питомцев дефолт 5 (противоречит общему правилу 20).
 const PETS_DEFAULT_SIZE = 5;
 
 export default function PetsPage() {
+  const admin = isAdmin();
   const [pets, setPets] = useState<Pet[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [search, setSearch] = useState('');
   const [categoryId, setCategoryId] = useState('');
   const [status, setStatus] = useState('');
+  const [sellerId, setSellerId] = useState('');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(PETS_DEFAULT_SIZE);
   const [total, setTotal] = useState(0);
@@ -25,6 +28,7 @@ export default function PetsPage() {
     if (search) params.set('search', search);
     if (categoryId) params.set('category_id', categoryId);
     if (status) params.set('status', status);
+    if (admin && sellerId) params.set('seller_id', sellerId);
     params.set('page', String(page));
     // BUG #8: на бэк уходит выбранный размер + 10 (apiLimit).
     params.set('limit', String(apiLimit(pageSize)));
@@ -46,7 +50,7 @@ export default function PetsPage() {
 
   useEffect(() => {
     load();
-  }, [page, pageSize, categoryId, status]);
+  }, [page, pageSize, categoryId, status, sellerId]);
 
   useEffect(() => {
     loadCategories();
@@ -54,7 +58,7 @@ export default function PetsPage() {
 
   const changeCategory = (val: string) => { setCategoryId(val); setPage(1); };
   const changeStatus = (val: string) => { setStatus(val); setPage(1); };
-  const resetFilters = () => { setSearch(''); setCategoryId(''); setStatus(''); setPage(1); };
+  const resetFilters = () => { setSearch(''); setCategoryId(''); setStatus(''); setSellerId(''); setPage(1); };
 
   const doSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -141,6 +145,9 @@ export default function PetsPage() {
             <option value="pending">Бронь</option>
             <option value="sold">Продан</option>
           </select>
+          {admin && (
+            <SellerFilter value={sellerId} onChange={(v) => { setSellerId(v); setPage(1); }} />
+          )}
           <button className="secondary" onClick={resetFilters}>Сбросить</button>
         </div>
       </div>
@@ -152,6 +159,7 @@ export default function PetsPage() {
           <tr>
             <th>ID</th>
             <th>Имя</th>
+            {admin && <th>Продавец</th>}
             <th>Категория</th>
             <th>Статус</th>
             <th>Цена</th>
@@ -163,6 +171,7 @@ export default function PetsPage() {
             <tr key={pet.id}>
               <td style={{ fontFamily: 'monospace', fontSize: 12 }}>{pet.id}</td>
               <td>{pet.name}</td>
+              {admin && <td>{pet.seller_name || '—'}</td>}
               <td>{pet.category_name || '—'}</td>
               <td>
                 {pet.status ? (

@@ -12,6 +12,22 @@ export function clearToken(): void {
   localStorage.removeItem('token');
 }
 
+// Достаём userId из JWT (payload закодирован base64url, не проверяем подпись — только чтение)
+export function getUserId(): number | null {
+  const token = getToken();
+  if (!token) return null;
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return typeof payload.userId === 'number' ? payload.userId : null;
+  } catch {
+    return null;
+  }
+}
+
+export function isAdmin(): boolean {
+  return getUserId() === 0;
+}
+
 export class ApiError extends Error {
   status: number;
   constructor(message: string, status: number) {
