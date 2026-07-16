@@ -348,3 +348,29 @@ code {
   color: #26a69a;
   font-weight: 600;
 }
+
+/* Селектор размера страницы */
+.page-size {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #555;
+}
+.page-size select {
+  padding: 6px 8px;
+}
+
+/* Подсказки и примечания в задании */
+.hint {
+  font-size: 13px;
+  color: #777;
+  font-style: italic;
+  margin-top: 4px;
+}
+.send-note {
+  background: #e3f2fd;
+  border: 1px solid #bbdefb;
+  color: #0d47a1;
+  font-weight: 500;
+}

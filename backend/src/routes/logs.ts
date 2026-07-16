@@ -17,6 +17,7 @@ router.get('/', async (req: Request, res: Response) => {
     const dateTo = req.query.date_to as string;
     const search = req.query.search as string;
     const source = req.query.source as string || 'db'; // 'db' или 'file'
+    const limit = parseInt(req.query.limit as string) || 20;
 
     if (source === 'file') {
       // Поиск по файловым логам
@@ -41,7 +42,7 @@ router.get('/', async (req: Request, res: Response) => {
       }
 
       // BUG: нет пагинации для файловых логов
-      res.json({ source: 'file', count: results.length, data: results.slice(0, 100) });
+      res.json({ source: 'file', count: results.length, data: results.slice(0, limit) });
     } else {
       // Поиск по БД
       let query = 'SELECT * FROM logs WHERE 1=1';
@@ -73,7 +74,9 @@ router.get('/', async (req: Request, res: Response) => {
         params.push(`%${search}%`);
       }
 
-      query += ' ORDER BY created_at DESC LIMIT 100';
+      paramIdx++;
+      query += ` ORDER BY updated_at DESC LIMIT $${paramIdx}`;
+      params.push(limit);
 
       const result = await pool.query(query, params);
       res.json({ source: 'db', count: result.rows.length, data: result.rows });

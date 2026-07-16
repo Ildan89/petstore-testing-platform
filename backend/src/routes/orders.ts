@@ -7,11 +7,27 @@ router.use(authMiddleware);
 
 const STATUS_FLOW = ['placed', 'approved', 'delivered'];
 
-// GET /api/orders — список заказов
+// GET /api/orders — список заказов (фильтр по животному + пагинация)
 router.get('/', async (req: Request, res: Response) => {
   try {
+    const search = (req.query.search as string) || '';
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 20;
+    const offset = (page - 1) * limit;
+
+    const params: any[] = [];
+    let where = ' WHERE 1=1';
+
+    // Поиск по имени животного (рабочий)
+    if (search) {
+      params.push(`%${search}%`);
+      where += ` AND p.name ILIKE $${params.length}`;
+    }
+
     // BUG #1: показываем ВСЕ заказы, а не только заказы текущего продавца.
     // Должно быть: WHERE o.seller_id = req.user.userId
+
+    const listParams = [...params, limit, offset];
     const result = await pool.query(
       `SELECT o.id, o.pet_id, o.seller_id, o.buyer_name, o.buyer_phone,
               o.quantity, o.status, o.placed_at,
@@ -19,9 +35,19 @@ router.get('/', async (req: Request, res: Response) => {
        FROM orders o
        JOIN pets p ON o.pet_id = p.id
        JOIN users u ON o.seller_id = u.id
-       ORDER BY o.placed_at DESC`
+       ${where}
+       ORDER BY o.updated_at DESC
+       LIMIT $${listParams.length - 1} OFFSET $${listParams.length}`,
+      listParams
     );
-    res.json(result.rows);
+
+    const countResult = await pool.query('SELECT COUNT(*) FROM orders');
+    const total = parseInt(countResult.rows[0].count);
+
+    res.json({
+      data: result.rows,
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -82,7 +108,7 @@ router.put('/:id/status', async (req: Request, res: Response) => {
     }
 
     const result = await pool.query(
-      `UPDATE orders SET status = $1 WHERE id = $2 RETURNING *`,
+      `UPDATE orders SET status = $1, updated_at = NOW() WHERE id = $2 RETURNING *`,
       [status, req.params.id]
     );
     if (result.rows.length === 0) {

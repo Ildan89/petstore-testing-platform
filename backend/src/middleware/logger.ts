@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import { randomUUID } from 'crypto';
 import pool, { sqlStore, SqlRecord } from '../db';
 import fs from 'fs';
 import path from 'path';
@@ -74,35 +75,64 @@ export async function logToDb(
 export function requestLogger(req: Request, res: Response, next: NextFunction): void {
   const start = Date.now();
   const records: SqlRecord[] = [];
+  const requestId = randomUUID();
+
+  // Перехватываем тело ответа, чтобы достать текст ошибки (поле error)
+  let responseBody: unknown;
+  const originalJson = res.json.bind(res);
+  res.json = (body: unknown) => {
+    responseBody = body;
+    return originalJson(body);
+  };
 
   res.on('finish', () => {
     const duration = Date.now() - start;
     const level = res.statusCode >= 400 ? 'ERROR' : 'INFO';
 
-    // Собираем SQL-запросы и ответы БД, выполненные в рамках этого запроса
+    // accountId: id продавца из токена, либо anonymous
+    const accountId = req.user?.userId != null ? String(req.user.userId) : 'anonymous';
+
+    // Текст ошибки из тела ответа (если есть)
+    let errorText = '';
+    if (
+      responseBody &&
+      typeof responseBody === 'object' &&
+      'error' in (responseBody as Record<string, unknown>)
+    ) {
+      errorText = String((responseBody as Record<string, unknown>).error);
+    }
+
+    // Двухстрочное сообщение:
+    // 1) requestId, accountId, метод url статус
+    // 2) текст ошибки (если есть)
+    const line1 = `requestId=${requestId} accountId=${accountId} | ${req.method} ${req.path} ${res.statusCode}`;
+    const message = errorText ? `${line1}\n${errorText}` : line1;
+
     const sqlQuery = records.map((r) => r.sql).join(';\n');
     const dbResponse = JSON.stringify(
       records.map((r) => ({ rowCount: r.rowCount, rows: r.rows })),
     );
 
-    logToFile(level, `${req.method} ${req.path} ${res.statusCode} ${duration}ms`, {
+    logToFile(level, message, {
+      requestId,
+      accountId,
       endpoint: req.path,
       method: req.method,
       duration,
       statusCode: res.statusCode,
       ip: req.ip || req.socket.remoteAddress,
-      userId: req.user?.userId,
+      error: errorText || undefined,
       sql: sqlQuery,
     });
 
     logToDb(
       level,
-      `${req.method} ${req.path} ${res.statusCode}`,
+      message,
       req.path,
       req.method,
       req.user?.userId,
       req.ip || req.socket.remoteAddress,
-      { duration, statusCode: res.statusCode, query: req.query, body: req.body },
+      { requestId, accountId, duration, statusCode: res.statusCode, query: req.query, body: req.body },
       sqlQuery || undefined,
       dbResponse,
     );

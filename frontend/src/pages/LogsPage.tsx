@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { api } from '../api/client';
 import type { LogEntry } from '../api/types';
+import { PageSizeSelect, apiLimit, DEFAULT_PAGE_SIZE } from '../components/PageSize';
 
 interface LogsResponse {
   source: string;
@@ -12,17 +13,19 @@ export default function LogsPage() {
   const [level, setLevel] = useState('');
   const [search, setSearch] = useState('');
   const [source, setSource] = useState<'db' | 'file'>('db');
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [count, setCount] = useState(0);
   const [expanded, setExpanded] = useState<number | null>(null);
   const [error, setError] = useState('');
 
-  const load = async () => {
+  const load = async (size = pageSize) => {
     setError('');
     const params = new URLSearchParams();
     if (level) params.set('level', level);
     if (search) params.set('search', search);
     params.set('source', source);
+    params.set('limit', String(apiLimit(size)));
     try {
       const res = await api.get<LogsResponse>(`/logs?${params.toString()}`);
       setLogs(res.data || []);
@@ -52,7 +55,11 @@ export default function LogsPage() {
             onChange={(e) => setSearch(e.target.value)}
             style={{ flex: 1 }}
           />
-          <button onClick={load}>Искать</button>
+          <button onClick={() => load()}>Искать</button>
+          <PageSizeSelect
+            value={pageSize}
+            onChange={(v) => { setPageSize(v); load(v); }}
+          />
         </div>
       </div>
 
@@ -81,7 +88,7 @@ export default function LogsPage() {
                   </span>
                 </td>
                 <td>
-                  {log.message}
+                  <span style={{ whiteSpace: 'pre-line', fontSize: 13 }}>{log.message}</span>
                   {expanded === i && log.sql_query && (
                     <pre className="code-block small" style={{ marginTop: 6 }}>
                       {log.sql_query}

@@ -2,8 +2,10 @@ import { useEffect, useState } from 'react';
 import { api } from '../api/client';
 import type { Pet, Category, PetsResponse } from '../api/types';
 import { petStatusRu } from '../api/labels';
+import { PageSizeSelect, apiLimit } from '../components/PageSize';
 
-const DEFAULT_LIMIT = 5;
+// По ТЗ в каталоге питомцев дефолт 5 (противоречит общему правилу 20).
+const PETS_DEFAULT_SIZE = 5;
 
 export default function PetsPage() {
   const [pets, setPets] = useState<Pet[]>([]);
@@ -12,6 +14,7 @@ export default function PetsPage() {
   const [categoryId, setCategoryId] = useState('');
   const [status, setStatus] = useState('');
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(PETS_DEFAULT_SIZE);
   const [total, setTotal] = useState(0);
   const [editing, setEditing] = useState<Partial<Pet> | null>(null);
   const [error, setError] = useState('');
@@ -23,8 +26,8 @@ export default function PetsPage() {
     if (categoryId) params.set('category_id', categoryId);
     if (status) params.set('status', status);
     params.set('page', String(page));
-    // BUG #8: на экране дефолт 5, но на бэк уходит limit + 10 (запрашиваем 15).
-    params.set('limit', String(DEFAULT_LIMIT + 10));
+    // BUG #8: на бэк уходит выбранный размер + 10 (apiLimit).
+    params.set('limit', String(apiLimit(pageSize)));
     try {
       const res = await api.get<PetsResponse>(`/pets?${params.toString()}`);
       setPets(res.data || []);
@@ -43,7 +46,7 @@ export default function PetsPage() {
 
   useEffect(() => {
     load();
-  }, [page, categoryId, status]);
+  }, [page, pageSize, categoryId, status]);
 
   useEffect(() => {
     loadCategories();
@@ -101,7 +104,8 @@ export default function PetsPage() {
     }
   };
 
-  const totalPages = Math.ceil(total / DEFAULT_LIMIT);
+  const totalPages = Math.ceil(total / pageSize);
+  const changePageSize = (v: number) => { setPageSize(v); setPage(1); };
 
   const formatPrice = (price: string) => {
     const n = Number(price);
@@ -187,6 +191,7 @@ export default function PetsPage() {
         <button className="secondary" disabled={page >= totalPages} onClick={() => setPage(page + 1)}>
           Вперёд →
         </button>
+        <PageSizeSelect value={pageSize} onChange={changePageSize} />
       </div>
 
       {editing && (

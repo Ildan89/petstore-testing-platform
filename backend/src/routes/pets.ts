@@ -47,7 +47,7 @@ router.get('/', async (req: Request, res: Response) => {
       FROM pets p
       LEFT JOIN categories c ON p.category_id = c.id
       ${where}
-      ORDER BY p.created_at DESC
+      ORDER BY p.updated_at DESC
       LIMIT $${listParams.length - 1} OFFSET $${listParams.length}
     `;
     const result = await pool.query(query, listParams);

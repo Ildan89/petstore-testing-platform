@@ -2,6 +2,12 @@ import { useEffect, useState } from 'react';
 import { api } from '../api/client';
 import type { Order, Pet, PetsResponse } from '../api/types';
 import { orderStatusRu } from '../api/labels';
+import { PageSizeSelect, apiLimit, DEFAULT_PAGE_SIZE } from '../components/PageSize';
+
+interface OrdersResponse {
+  data: Order[];
+  pagination: { page: number; limit: number; total: number; totalPages: number };
+}
 
 const NEXT_STATUS: Record<string, string> = {
   placed: 'approved',
@@ -16,11 +22,22 @@ export default function OrdersPage() {
   const [buyerName, setBuyerName] = useState('');
   const [buyerPhone, setBuyerPhone] = useState('');
   const [error, setError] = useState('');
+  // поиск по животному + пагинация
+  const [search, setSearch] = useState('');
+  const [searchInput, setSearchInput] = useState('');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+  const [total, setTotal] = useState(0);
 
   const load = async () => {
     try {
-      const res = await api.get<Order[]>('/orders');
-      setOrders(res || []);
+      const params = new URLSearchParams();
+      if (search) params.set('search', search);
+      params.set('page', String(page));
+      params.set('limit', String(apiLimit(pageSize)));
+      const res = await api.get<OrdersResponse>(`/orders?${params.toString()}`);
+      setOrders(res.data || []);
+      setTotal(res.pagination?.total || 0);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Ошибка');
     }
@@ -35,8 +52,13 @@ export default function OrdersPage() {
 
   useEffect(() => {
     load();
+  }, [page, pageSize, search]);
+
+  useEffect(() => {
     loadPets();
   }, []);
+
+  const totalPages = Math.ceil(total / pageSize);
 
   const createOrder = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -124,10 +146,34 @@ export default function OrdersPage() {
               onChange={(e) => setBuyerPhone(e.target.value)}
               style={{ flex: 1 }}
             />
-            <button type="submit">Заказать</button>
+            <button type="submit">Оформить заказ</button>
           </div>
         </form>
         {error && <div className="error" style={{ marginTop: 8 }}>{error}</div>}
+      </div>
+
+      <div className="card">
+        <form
+          className="row"
+          onSubmit={(e) => { e.preventDefault(); setSearch(searchInput); setPage(1); }}
+        >
+          <input
+            placeholder="Поиск по названию животного..."
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            style={{ flex: 1 }}
+          />
+          <button type="submit">Найти</button>
+          {search && (
+            <button
+              type="button"
+              className="secondary"
+              onClick={() => { setSearch(''); setSearchInput(''); setPage(1); }}
+            >
+              Сбросить
+            </button>
+          )}
+        </form>
       </div>
 
       <table>
@@ -172,6 +218,17 @@ export default function OrdersPage() {
           ))}
         </tbody>
       </table>
+
+      <div className="row" style={{ marginTop: 16, justifyContent: 'center' }}>
+        <button className="secondary" disabled={page <= 1} onClick={() => setPage(page - 1)}>
+          ← Назад
+        </button>
+        <span>Страница {page} из {totalPages || 1}</span>
+        <button className="secondary" disabled={page >= totalPages} onClick={() => setPage(page + 1)}>
+          Вперёд →
+        </button>
+        <PageSizeSelect value={pageSize} onChange={(v) => { setPageSize(v); setPage(1); }} />
+      </div>
     </div>
   );
 }
