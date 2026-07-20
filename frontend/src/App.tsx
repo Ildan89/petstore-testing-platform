@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Routes, Route, Link, Navigate, useNavigate } from 'react-router-dom';
 import { getToken, clearToken } from './api/client';
 import { PawIcon } from './components/Logo';
@@ -18,15 +19,31 @@ function RequireAuth({ children }: { children: JSX.Element }) {
   return children;
 }
 
+// Основные разделы (слева) и инструменты (справа)
+const NAV_MAIN = [
+  { to: '/dashboard', label: '📊 Дашборд' },
+  { to: '/pets', label: '🐕 Питомцы' },
+  { to: '/orders', label: '🛒 Заказы' },
+];
+const NAV_TOOLS = [
+  { to: '/sql', label: '🗄️ SQL-консоль' },
+  { to: '/logs', label: '📜 Логи' },
+  { to: '/task', label: '📋 Задание' },
+  { to: '/docs', label: '📖 Дока' },
+];
+
 function Nav() {
   const navigate = useNavigate();
+  const [open, setOpen] = useState(false);
   const logout = () => {
     clearToken();
     navigate('/login');
   };
+  const close = () => setOpen(false);
+
   return (
     <div className="nav">
-      <Link to="/task" className="logo">
+      <Link to="/task" className="logo" onClick={close}>
         <span className="logo-icon">
           <PawIcon size={30} />
         </span>
@@ -35,17 +52,34 @@ function Nav() {
           <span className="logo-sub">CRM для продавцов</span>
         </span>
       </Link>
-      <div className="nav-links">
-        <Link to="/dashboard">📊 Дашборд</Link>
-        <Link to="/pets">🐕 Питомцы</Link>
-        <Link to="/orders">🛒 Заказы</Link>
+
+      <button
+        className="nav-burger"
+        onClick={() => setOpen(!open)}
+        aria-label="Меню"
+      >
+        {open ? '✕' : '☰'}
+      </button>
+
+      <div className={open ? 'nav-menu open' : 'nav-menu'}>
+        <div className="nav-group nav-group-main">
+          {NAV_MAIN.map((item) => (
+            <Link key={item.to} to={item.to} onClick={close}>
+              {item.label}
+            </Link>
+          ))}
+        </div>
+        <div className="nav-group nav-group-tools">
+          {NAV_TOOLS.map((item) => (
+            <Link key={item.to} to={item.to} onClick={close}>
+              {item.label}
+            </Link>
+          ))}
+          <button className="secondary nav-logout" onClick={() => { close(); logout(); }}>
+            Выйти →
+          </button>
+        </div>
       </div>
-      <div className="spacer" />
-      <Link to="/sql" className="nav-right">🗄️ SQL-консоль</Link>
-      <Link to="/logs" className="nav-right">📜 Логи</Link>
-      <Link to="/task" className="nav-right">📋 Задание</Link>
-      <Link to="/docs" className="nav-right">📖 Дока</Link>
-      <button className="secondary" onClick={logout}>Выйти →</button>
     </div>
   );
 }

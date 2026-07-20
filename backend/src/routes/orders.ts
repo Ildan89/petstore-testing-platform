@@ -69,7 +69,7 @@ router.get('/', async (req: Request, res: Response) => {
 // POST /api/orders — оформление заказа
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { pet_id, quantity = 1, buyer_name, buyer_phone } = req.body;
+    const { pet_id, buyer_name, buyer_phone } = req.body;
 
     if (!pet_id) {
       res.status(400).json({ error: 'pet_id обязателен' });
@@ -87,10 +87,6 @@ router.post('/', async (req: Request, res: Response) => {
       res.status(400).json({ error: 'Телефон не должен превышать 20 символов' });
       return;
     }
-    if (quantity < 1) {
-      res.status(400).json({ error: 'Количество должно быть не менее 1' });
-      return;
-    }
 
     // BUG #4: проверка статуса и вставка — вне транзакции/без блокировки.
     // Между SELECT и INSERT статус может измениться → можно заказать проданного (race).
@@ -104,10 +100,20 @@ router.post('/', async (req: Request, res: Response) => {
       return;
     }
 
+    // На питомца не должно быть других активных заказов (отменённые игнорируем)
+    const existing = await pool.query(
+      `SELECT id FROM orders WHERE pet_id = $1 AND status <> 'cancelled'`,
+      [pet_id]
+    );
+    if (existing.rows.length > 0) {
+      res.status(400).json({ error: 'На этого питомца уже есть активный заказ' });
+      return;
+    }
+
     const result = await pool.query(
       `INSERT INTO orders (pet_id, seller_id, buyer_name, buyer_phone, quantity, status)
-       VALUES ($1, $2, $3, $4, $5, 'placed') RETURNING *`,
-      [pet_id, req.user!.userId, buyer_name, buyer_phone, quantity]
+       VALUES ($1, $2, $3, $4, 1, 'placed') RETURNING *`,
+      [pet_id, req.user!.userId, buyer_name, buyer_phone]
     );
 
     // После оформления животное становится проданным
@@ -115,6 +121,12 @@ router.post('/', async (req: Request, res: Response) => {
 
     res.status(201).json(result.rows[0]);
   } catch (err: any) {
+    // 23505 = unique_violation: сработал частичный уникальный индекс
+    // uniq_active_order_per_pet (гонка double-submit — второй заказ отклонён БД).
+    if (err.code === '23505') {
+      res.status(400).json({ error: 'На этого питомца уже есть активный заказ' });
+      return;
+    }
     res.status(500).json({ error: err.message });
   }
 });

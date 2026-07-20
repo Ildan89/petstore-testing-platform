@@ -1,22 +1,22 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api/client';
 import type { DashboardStats } from '../api/types';
+import { useSnackbar } from '../components/Snackbar';
 
 export default function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [error, setError] = useState('');
+  const { notify } = useSnackbar();
 
   useEffect(() => {
     api
       .get<DashboardStats>('/dashboard')
       .then(setStats)
-      .catch((e) => setError(e.message));
-  }, []);
+      .catch((e) => notify(e.message));
+  }, [notify]);
 
   return (
     <div>
       <h2>Дашборд</h2>
-      {error && <div className="error">{error}</div>}
       <div className="stats-row">
         <div className="stat-card">
           <div className="stat-value">{stats?.pets ?? '—'}</div>

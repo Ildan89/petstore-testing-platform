@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { api } from '../api/client';
 import type { LogEntry } from '../api/types';
 import { PageSizeSelect, apiLimit, DEFAULT_PAGE_SIZE } from '../components/PageSize';
+import { useSnackbar } from '../components/Snackbar';
 
 interface LogsResponse {
   count: number;
@@ -33,10 +34,10 @@ export default function LogsPage() {
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [total, setTotal] = useState(0);
-  const [error, setError] = useState('');
+  const { notify } = useSnackbar();
 
   const load = async (searchValue = search, pageValue = page) => {
-    setError('');
+
     const params = new URLSearchParams();
     if (level) params.set('level', level);
     if (searchValue) params.set('search', searchValue);
@@ -47,7 +48,7 @@ export default function LogsPage() {
       setLogs(res.data || []);
       setTotal(res.pagination?.total || 0);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Ошибка');
+      notify(e instanceof Error ? e.message : 'Ошибка');
     }
   };
 
@@ -96,7 +97,6 @@ export default function LogsPage() {
         </form>
       </div>
 
-      {error && <div className="error">{error}</div>}
 
       <div className="card">
         <p>Всего логов: {total}</p>

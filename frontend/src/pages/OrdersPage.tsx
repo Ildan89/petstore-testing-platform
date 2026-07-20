@@ -5,6 +5,7 @@ import { orderStatusRu } from '../api/labels';
 import { PageSizeSelect, apiLimit, DEFAULT_PAGE_SIZE } from '../components/PageSize';
 import { SellerFilter } from '../components/SellerFilter';
 import { Modal } from '../components/Modal';
+import { useSnackbar } from '../components/Snackbar';
 
 interface OrdersResponse {
   data: Order[];
@@ -21,11 +22,10 @@ export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [pets, setPets] = useState<Pet[]>([]);
   const [petId, setPetId] = useState('');
-  const [quantity, setQuantity] = useState(1);
   const [buyerName, setBuyerName] = useState('');
   const [buyerPhone, setBuyerPhone] = useState('');
   const [showOrderForm, setShowOrderForm] = useState(false);
-  const [error, setError] = useState('');
+  const { notify } = useSnackbar();
   // поиск по животному + фильтр по продавцу (admin) + пагинация
   const [search, setSearch] = useState('');
   const [searchInput, setSearchInput] = useState('');
@@ -45,7 +45,7 @@ export default function OrdersPage() {
       setOrders(res.data || []);
       setTotal(res.pagination?.total || 0);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Ошибка');
+      notify(e instanceof Error ? e.message : 'Ошибка');
     }
   };
 
@@ -68,31 +68,40 @@ export default function OrdersPage() {
 
   const createOrder = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
+
     if (!petId) return;
 
     const body = {
       pet_id: petId,
-      quantity,
       buyer_name: buyerName,
       buyer_phone: buyerPhone,
     };
 
     // BUG #3: один клик — два одинаковых POST-запроса (double submit).
     // Видно на вкладке Network: два вызова вместо одного.
-    api.post('/orders', body).catch(() => {});
-    try {
-      await api.post('/orders', body);
+    const results = await Promise.allSettled([
+      api.post('/orders', body),
+      api.post('/orders', body),
+    ]);
+
+    // Хотя бы один запрос успешен — заказ создан, закрываем диалог.
+    if (results.some((r) => r.status === 'fulfilled')) {
       setPetId('');
-      setQuantity(1);
       setBuyerName('');
       setBuyerPhone('');
       setShowOrderForm(false);
-      load();
-      loadPets();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Ошибка');
     }
+
+    // Показываем ошибку, если упал хотя бы один запрос.
+    const failed = results.find((r) => r.status === 'rejected') as
+      | PromiseRejectedResult
+      | undefined;
+    if (failed) {
+      notify(failed.reason instanceof Error ? failed.reason.message : 'Ошибка');
+    }
+
+    load();
+    loadPets();
   };
 
   const changeStatus = async (order: Order) => {
@@ -102,7 +111,7 @@ export default function OrdersPage() {
       await api.put(`/orders/${order.id}/status`, { status: next });
       load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Ошибка');
+      notify(e instanceof Error ? e.message : 'Ошибка');
     }
   };
 
@@ -113,7 +122,7 @@ export default function OrdersPage() {
       load();
       loadPets();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Ошибка');
+      notify(e instanceof Error ? e.message : 'Ошибка');
     }
   };
 
@@ -125,7 +134,7 @@ export default function OrdersPage() {
       <div className="card">
         <div className="row" style={{ justifyContent: 'space-between' }}>
           <h2 style={{ margin: 0 }}>Заказы</h2>
-          <button onClick={() => { setError(''); setShowOrderForm(true); }}>
+          <button onClick={() => setShowOrderForm(true)}>
             + Оформить заказ
           </button>
         </div>
@@ -142,15 +151,6 @@ export default function OrdersPage() {
                   <option key={p.id} value={p.id}>{p.name}</option>
                 ))}
               </select>
-            </div>
-            <div className="form-field">
-              <label>Количество</label>
-              <input
-                type="number"
-                min={1}
-                value={quantity}
-                onChange={(e) => setQuantity(Number(e.target.value))}
-              />
             </div>
             <div className="form-field">
               <label>Имя покупателя</label>
@@ -170,7 +170,6 @@ export default function OrdersPage() {
                 onChange={(e) => setBuyerPhone(e.target.value)}
               />
             </div>
-            {error && <div className="error">{error}</div>}
             <div className="row">
               <button type="submit">Оформить заказ</button>
               <button type="button" className="secondary" onClick={() => setShowOrderForm(false)}>
@@ -215,7 +214,6 @@ export default function OrdersPage() {
             <th>Питомец</th>
             <th>Продавец</th>
             <th>Покупатель</th>
-            <th>Кол-во</th>
             <th>Статус</th>
             <th>Дата</th>
             <th>Действия</th>
@@ -231,7 +229,6 @@ export default function OrdersPage() {
                 {o.buyer_name || '—'}
                 {o.buyer_phone ? <div style={{ fontSize: 12, color: '#888' }}>{o.buyer_phone}</div> : null}
               </td>
-              <td>{o.quantity}</td>
               <td>{orderStatusRu(o.status)}</td>
               <td>{formatDate(o.placed_at)}</td>
               <td>

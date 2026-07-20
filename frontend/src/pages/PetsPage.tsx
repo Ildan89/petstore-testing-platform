@@ -5,6 +5,7 @@ import { petStatusRu } from '../api/labels';
 import { PageSizeSelect, apiLimit } from '../components/PageSize';
 import { SellerFilter } from '../components/SellerFilter';
 import { Modal } from '../components/Modal';
+import { useSnackbar } from '../components/Snackbar';
 
 // По ТЗ в каталоге питомцев дефолт 5 (противоречит общему правилу 20).
 const PETS_DEFAULT_SIZE = 5;
@@ -21,10 +22,9 @@ export default function PetsPage() {
   const [pageSize, setPageSize] = useState(PETS_DEFAULT_SIZE);
   const [total, setTotal] = useState(0);
   const [editing, setEditing] = useState<Partial<Pet> | null>(null);
-  const [error, setError] = useState('');
+  const { notify } = useSnackbar();
 
   const load = async () => {
-    setError('');
     const params = new URLSearchParams();
     if (search) params.set('search', search);
     if (categoryId) params.set('category_id', categoryId);
@@ -38,7 +38,7 @@ export default function PetsPage() {
       setPets(res.data || []);
       setTotal(res.pagination?.total || 0);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Ошибка загрузки');
+      notify(e instanceof Error ? e.message : 'Ошибка загрузки');
     }
   };
 
@@ -73,7 +73,7 @@ export default function PetsPage() {
       await api.del(`/pets/${id}`);
       load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Ошибка удаления');
+      notify(e instanceof Error ? e.message : 'Ошибка удаления');
     }
   };
 
@@ -105,7 +105,9 @@ export default function PetsPage() {
         load();
         return;
       }
-      setError(msg);
+      notify(msg);
+      // Список обновляем в любом случае (напр. при double-submit питомец мог создаться)
+      load();
     }
   };
 
@@ -153,7 +155,6 @@ export default function PetsPage() {
         </div>
       </div>
 
-      {error && <div className="error">{error}</div>}
 
       {editing && (
         <Modal

@@ -2,21 +2,21 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api, setToken } from '../api/client';
 import { PawIcon } from '../components/Logo';
+import { useSnackbar } from '../components/Snackbar';
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const { notify } = useSnackbar();
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
-  const [error, setError] = useState('');
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
 
     if (mode === 'register' && password !== confirm) {
-      setError('Пароли не совпадают');
+      notify('Пароли не совпадают');
       return;
     }
 
@@ -30,7 +30,7 @@ export default function LoginPage() {
       setToken(res.token);
       navigate('/task');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Ошибка');
+      notify(err instanceof Error ? err.message : 'Ошибка');
     }
   };
 
@@ -51,7 +51,6 @@ export default function LoginPage() {
       </div>
       <div className="card">
         <h2>{mode === 'login' ? 'Вход' : 'Регистрация'}</h2>
-        {error && <div className="error">{error}</div>}
         <form onSubmit={submit}>
           <div className="form-field">
             <label>Логин</label>
