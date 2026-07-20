@@ -146,7 +146,7 @@ export default function SqlPage() {
             <div className="card">
               <p>Строк: {result.rowCount}</p>
               <div style={{ overflowX: 'auto' }}>
-                <table>
+                <table className="clip-table">
                   <thead>
                     <tr>{columns.map((c) => <th key={c}>{c}</th>)}</tr>
                   </thead>

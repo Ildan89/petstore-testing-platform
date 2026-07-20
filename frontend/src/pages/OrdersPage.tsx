@@ -4,6 +4,7 @@ import type { Order, Pet, PetsResponse } from '../api/types';
 import { orderStatusRu } from '../api/labels';
 import { PageSizeSelect, apiLimit, DEFAULT_PAGE_SIZE } from '../components/PageSize';
 import { SellerFilter } from '../components/SellerFilter';
+import { Modal } from '../components/Modal';
 
 interface OrdersResponse {
   data: Order[];
@@ -23,6 +24,7 @@ export default function OrdersPage() {
   const [quantity, setQuantity] = useState(1);
   const [buyerName, setBuyerName] = useState('');
   const [buyerPhone, setBuyerPhone] = useState('');
+  const [showOrderForm, setShowOrderForm] = useState(false);
   const [error, setError] = useState('');
   // поиск по животному + фильтр по продавцу (admin) + пагинация
   const [search, setSearch] = useState('');
@@ -85,6 +87,7 @@ export default function OrdersPage() {
       setQuantity(1);
       setBuyerName('');
       setBuyerPhone('');
+      setShowOrderForm(false);
       load();
       loadPets();
     } catch (e) {
@@ -120,41 +123,63 @@ export default function OrdersPage() {
   return (
     <div>
       <div className="card">
-        <h2>Оформить заказ</h2>
-        <form onSubmit={createOrder}>
-          <div className="row">
-            <select value={petId} onChange={(e) => setPetId(e.target.value)} style={{ flex: 1 }}>
-              <option value="">Выберите питомца (доступного)</option>
-              {pets.map((p) => (
-                <option key={p.id} value={p.id}>{p.name}</option>
-              ))}
-            </select>
-            <input
-              type="number"
-              min={1}
-              value={quantity}
-              onChange={(e) => setQuantity(Number(e.target.value))}
-              style={{ width: 80 }}
-            />
-          </div>
-          <div className="row" style={{ marginTop: 8 }}>
-            <input
-              placeholder="Имя покупателя"
-              value={buyerName}
-              onChange={(e) => setBuyerName(e.target.value)}
-              style={{ flex: 1 }}
-            />
-            <input
-              placeholder="+7XXXXXXXXXX"
-              value={buyerPhone}
-              onChange={(e) => setBuyerPhone(e.target.value)}
-              style={{ flex: 1 }}
-            />
-            <button type="submit">Оформить заказ</button>
-          </div>
-        </form>
-        {error && <div className="error" style={{ marginTop: 8 }}>{error}</div>}
+        <div className="row" style={{ justifyContent: 'space-between' }}>
+          <h2 style={{ margin: 0 }}>Заказы</h2>
+          <button onClick={() => { setError(''); setShowOrderForm(true); }}>
+            + Оформить заказ
+          </button>
+        </div>
       </div>
+
+      {showOrderForm && (
+        <Modal title="Оформить заказ" onClose={() => setShowOrderForm(false)}>
+          <form onSubmit={createOrder}>
+            <div className="form-field">
+              <label>Питомец</label>
+              <select value={petId} onChange={(e) => setPetId(e.target.value)}>
+                <option value="">Выберите питомца (доступного)</option>
+                {pets.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="form-field">
+              <label>Количество</label>
+              <input
+                type="number"
+                min={1}
+                value={quantity}
+                onChange={(e) => setQuantity(Number(e.target.value))}
+              />
+            </div>
+            <div className="form-field">
+              <label>Имя покупателя</label>
+              <input
+                placeholder="Имя покупателя"
+                maxLength={100}
+                value={buyerName}
+                onChange={(e) => setBuyerName(e.target.value)}
+              />
+            </div>
+            <div className="form-field">
+              <label>Телефон</label>
+              <input
+                placeholder="+7XXXXXXXXXX"
+                maxLength={20}
+                value={buyerPhone}
+                onChange={(e) => setBuyerPhone(e.target.value)}
+              />
+            </div>
+            {error && <div className="error">{error}</div>}
+            <div className="row">
+              <button type="submit">Оформить заказ</button>
+              <button type="button" className="secondary" onClick={() => setShowOrderForm(false)}>
+                Отмена
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
 
       <div className="card">
         <form
@@ -183,7 +208,7 @@ export default function OrdersPage() {
         </form>
       </div>
 
-      <table>
+      <table className="clip-table">
         <thead>
           <tr>
             <th>ID</th>

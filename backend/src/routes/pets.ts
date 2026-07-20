@@ -124,6 +124,14 @@ router.post('/', async (req: Request, res: Response) => {
       res.status(400).json({ error: 'name обязателен' });
       return;
     }
+    if (typeof name === 'string' && name.length > 100) {
+      res.status(400).json({ error: 'Название не должно превышать 100 символов' });
+      return;
+    }
+    if (typeof description === 'string' && description.length > 1000) {
+      res.status(400).json({ error: 'Описание не должно превышать 1000 символов' });
+      return;
+    }
 
     // BUG #2: расхождение запрос/ответ — цену тихо режем /10 (1000 -> 100)
     if (price !== undefined && price !== null) {
@@ -157,6 +165,15 @@ router.put('/:id', async (req: Request, res: Response) => {
   try {
     const { name, category_id, status, description } = req.body;
     let { price } = req.body;
+
+    if (typeof name === 'string' && name.length > 100) {
+      res.status(400).json({ error: 'Название не должно превышать 100 символов' });
+      return;
+    }
+    if (typeof description === 'string' && description.length > 1000) {
+      res.status(400).json({ error: 'Описание не должно превышать 1000 символов' });
+      return;
+    }
 
     // BUG #2: та же подмена цены при обновлении
     if (price !== undefined && price !== null) {

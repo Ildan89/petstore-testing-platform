@@ -17,8 +17,12 @@ export interface SqlRecord {
   params?: unknown[];
   rowCount: number | null;
   rows: unknown[];
+  error?: string; // текст ошибки БД, если запрос упал
 }
 export const sqlStore = new AsyncLocalStorage<SqlRecord[]>();
+
+// Форматирование SQL для лога: сохраняем переносы/табуляцию, срезаем пустые края.
+const formatSql = (text: string) => text.replace(/^\n+/, '').replace(/\s+$/, '');
 
 // Хранилище stack trace последней ошибки в рамках запроса (для логирования).
 export interface ErrorHolder {
@@ -37,7 +41,7 @@ async function query<T extends QueryResultRow = any>(
     const store = sqlStore.getStore();
     if (store && !/\blogs\b/i.test(text)) {
       store.push({
-        sql: text.replace(/\s+/g, ' ').trim(),
+        sql: formatSql(text),
         params,
         rowCount: result.rowCount,
         rows: result.rows.slice(0, 20), // не раздуваем ответ
@@ -45,6 +49,18 @@ async function query<T extends QueryResultRow = any>(
     }
     return result;
   } catch (err: any) {
+    // Упавший запрос тоже записываем в лог (с текстом ошибки вместо данных),
+    // чтобы в sql_query было видно, ЧТО именно упало.
+    const store = sqlStore.getStore();
+    if (store && !/\blogs\b/i.test(text)) {
+      store.push({
+        sql: formatSql(text),
+        params,
+        rowCount: null,
+        rows: [],
+        error: err.message,
+      });
+    }
     // Сохраняем stack ошибки БД в контекст запроса — логгер его подхватит
     const holder = errorStore.getStore();
     if (holder) holder.stack = err.stack || String(err);

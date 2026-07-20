@@ -79,6 +79,14 @@ router.post('/', async (req: Request, res: Response) => {
       res.status(400).json({ error: 'Укажите покупателя: имя и телефон' });
       return;
     }
+    if (typeof buyer_name === 'string' && buyer_name.length > 100) {
+      res.status(400).json({ error: 'Имя покупателя не должно превышать 100 символов' });
+      return;
+    }
+    if (typeof buyer_phone === 'string' && buyer_phone.length > 20) {
+      res.status(400).json({ error: 'Телефон не должен превышать 20 символов' });
+      return;
+    }
     if (quantity < 1) {
       res.status(400).json({ error: 'Количество должно быть не менее 1' });
       return;

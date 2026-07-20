@@ -260,6 +260,9 @@ th {
   overflow-x: auto;
   font-size: 13px;
   margin: 8px 0;
+  white-space: pre;
+  tab-size: 2;
+  font-family: 'SF Mono', Menlo, Consolas, monospace;
 }
 .code-block.small { font-size: 12px; padding: 8px; }
 code {
@@ -403,4 +406,56 @@ code {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* Не даём длинному тексту ломать вёрстку. Помечаем таблицы классом clip-table.
+   Логи НЕ трогаем (там многострочные сообщения и раскрываемые блоки). */
+.clip-table td {
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Модальное окно */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 60px 16px;
+  z-index: 1000;
+  overflow-y: auto;
+}
+.modal {
+  background: #fff;
+  border-radius: 10px;
+  width: 100%;
+  max-width: 480px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+  animation: modal-in 0.15s ease-out;
+}
+@keyframes modal-in {
+  from { opacity: 0; transform: translateY(-12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid #eee;
+}
+.modal-close {
+  background: transparent;
+  color: #888;
+  font-size: 24px;
+  line-height: 1;
+  padding: 0 6px;
+}
+.modal-close:hover { background: transparent; color: #333; }
+.modal-body {
+  padding: 20px;
 }

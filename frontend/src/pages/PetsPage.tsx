@@ -4,6 +4,7 @@ import type { Pet, Category, PetsResponse } from '../api/types';
 import { petStatusRu } from '../api/labels';
 import { PageSizeSelect, apiLimit } from '../components/PageSize';
 import { SellerFilter } from '../components/SellerFilter';
+import { Modal } from '../components/Modal';
 
 // По ТЗ в каталоге питомцев дефолт 5 (противоречит общему правилу 20).
 const PETS_DEFAULT_SIZE = 5;
@@ -154,7 +155,72 @@ export default function PetsPage() {
 
       {error && <div className="error">{error}</div>}
 
-      <table>
+      {editing && (
+        <Modal
+          title={editing.id ? 'Редактировать питомца' : 'Новый питомец'}
+          onClose={() => setEditing(null)}
+        >
+          <form onSubmit={save}>
+            <div className="form-field">
+              <label>Имя</label>
+              <input
+                maxLength={50}
+                value={editing.name || ''}
+                onChange={(e) => setEditing({ ...editing, name: e.target.value })}
+              />
+            </div>
+            <div className="form-field">
+              <label>Категория</label>
+              <select
+                value={editing.category_id ?? ''}
+                onChange={(e) =>
+                  setEditing({ ...editing, category_id: e.target.value ? Number(e.target.value) : null })
+                }
+              >
+                <option value="">—</option>
+                {categories.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="form-field">
+              <label>Статус</label>
+              <select
+                value={editing.status || 'available'}
+                onChange={(e) => setEditing({ ...editing, status: e.target.value as Pet['status'] })}
+              >
+                <option value="available">В продаже</option>
+                <option value="pending">Бронь</option>
+                <option value="sold">Продан</option>
+              </select>
+            </div>
+            <div className="form-field">
+              <label>Цена</label>
+              <input
+                type="number"
+                value={editing.price || ''}
+                onChange={(e) => setEditing({ ...editing, price: e.target.value })}
+              />
+            </div>
+            <div className="form-field">
+              <label>Описание</label>
+              <textarea
+                maxLength={1000}
+                value={editing.description || ''}
+                onChange={(e) => setEditing({ ...editing, description: e.target.value })}
+              />
+            </div>
+            <div className="row">
+              <button type="submit">Сохранить</button>
+              <button type="button" className="secondary" onClick={() => setEditing(null)}>
+                Отмена
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      <table className="clip-table">
         <thead>
           <tr>
             <th>ID</th>
@@ -202,67 +268,6 @@ export default function PetsPage() {
         </button>
         <PageSizeSelect value={pageSize} onChange={changePageSize} />
       </div>
-
-      {editing && (
-        <div className="card" style={{ marginTop: 16 }}>
-          <h3>{editing.id ? 'Редактировать' : 'Новый питомец'}</h3>
-          <form onSubmit={save}>
-            <div className="form-field">
-              <label>Имя</label>
-              <input
-                value={editing.name || ''}
-                onChange={(e) => setEditing({ ...editing, name: e.target.value })}
-              />
-            </div>
-            <div className="form-field">
-              <label>Категория</label>
-              <select
-                value={editing.category_id ?? ''}
-                onChange={(e) =>
-                  setEditing({ ...editing, category_id: e.target.value ? Number(e.target.value) : null })
-                }
-              >
-                <option value="">—</option>
-                {categories.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </select>
-            </div>
-            <div className="form-field">
-              <label>Статус</label>
-              <select
-                value={editing.status || 'available'}
-                onChange={(e) => setEditing({ ...editing, status: e.target.value as Pet['status'] })}
-              >
-                <option value="available">В продаже</option>
-                <option value="pending">Бронь</option>
-                <option value="sold">Продан</option>
-              </select>
-            </div>
-            <div className="form-field">
-              <label>Цена</label>
-              <input
-                type="number"
-                value={editing.price || ''}
-                onChange={(e) => setEditing({ ...editing, price: e.target.value })}
-              />
-            </div>
-            <div className="form-field">
-              <label>Описание</label>
-              <textarea
-                value={editing.description || ''}
-                onChange={(e) => setEditing({ ...editing, description: e.target.value })}
-              />
-            </div>
-            <div className="row">
-              <button type="submit">Сохранить</button>
-              <button type="button" className="secondary" onClick={() => setEditing(null)}>
-                Отмена
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
     </div>
   );
 }

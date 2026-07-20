@@ -153,9 +153,18 @@ export function requestLogger(req: Request, res: Response, next: NextFunction): 
     const message = parts.join('\n');
 
     const sqlQuery = records.map((r) => r.sql).join(';\n');
-    const dbResponse = JSON.stringify(
-      records.map((r) => ({ rowCount: r.rowCount, rows: r.rows })),
-    );
+    // Каждый запрос — отдельным элементом на своей строке
+    const dbResponse =
+      '[\n' +
+      records
+        .map((r) =>
+          '  ' +
+          JSON.stringify(
+            r.error ? { error: r.error } : { rowCount: r.rowCount, rows: r.rows },
+          ),
+        )
+        .join(',\n') +
+      '\n]';
 
     logToFile(level, message, {
       requestId,

@@ -35,12 +35,12 @@ export default function LogsPage() {
   const [total, setTotal] = useState(0);
   const [error, setError] = useState('');
 
-  const load = async () => {
+  const load = async (searchValue = search, pageValue = page) => {
     setError('');
     const params = new URLSearchParams();
     if (level) params.set('level', level);
-    if (search) params.set('search', search);
-    params.set('page', String(page));
+    if (searchValue) params.set('search', searchValue);
+    params.set('page', String(pageValue));
     params.set('limit', String(apiLimit(pageSize)));
     try {
       const res = await api.get<LogsResponse>(`/logs?${params.toString()}`);
@@ -51,17 +51,20 @@ export default function LogsPage() {
     }
   };
 
-  // автозагрузка при открытии и при смене фильтров/страницы
+  // автозагрузка при открытии и при смене уровня/страницы/размера
   useEffect(() => {
     load();
-  }, [level, search, page, pageSize]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [level, page, pageSize]);
 
   const totalPages = Math.ceil(total / pageSize);
 
+  // «Искать» всегда шлёт запрос, даже если текст не менялся
   const doSearch = (e: React.FormEvent) => {
     e.preventDefault();
     setSearch(searchInput);
     setPage(1);
+    load(searchInput, 1);
   };
 
   return (
@@ -85,7 +88,7 @@ export default function LogsPage() {
             <button
               type="button"
               className="secondary"
-              onClick={() => { setSearch(''); setSearchInput(''); setPage(1); }}
+              onClick={() => { setSearch(''); setSearchInput(''); setPage(1); load('', 1); }}
             >
               Сбросить
             </button>
